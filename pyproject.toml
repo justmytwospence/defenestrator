@@ -1,6 +1,6 @@
 [project]
 name = "defenestrator"
-version = "0.4.0"
+version = "0.5.0"
 description = "Throw out spent 5-hour Claude and Codex usage windows and start fresh ones, with a Grafana board."
 readme = "README.md"
 requires-python = ">=3.9"

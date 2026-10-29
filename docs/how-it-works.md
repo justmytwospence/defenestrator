@@ -29,10 +29,14 @@ Every 10 minutes (or earlier, at the exact moment a window is due to reset) it d
    which is stored so the next pass knows when to wake.
 4. **Codex.** Every pass it also reads `account/rateLimits/read` from `codex app-server`, maps its
    windows by duration (300 minutes is the 5-hour one, 10080 the weekly one) into the same sample
-   shape, and appends it to `usage.codex.jsonl`. If the plan has a 5-hour window the same planner
-   runs on Codex's own samples and history, and `codex exec` (the CLI's cheapest model, or
-   `CODEX_MODEL`) starts a window when it says so. A weekly-only plan (such as `prolite`) is sampled
-   but never pinged: there is no 5-hour window to start, and the decision log says so.
+   shape, and appends it to `usage.codex.jsonl`. It then acts on the windows the plan has:
+   - **Weekly only** (such as `prolite`): when the weekly window has ended, it runs `codex exec`
+     (the CLI's cheapest model, or `CODEX_MODEL`) to start the next one at once. There is no
+     learned timing here: the best moment to start a window whose reset you only care about when
+     you hit the cap is as early as possible, and four weeks of history is too little to learn a
+     weekly profile from. A running window is left alone.
+   - **A 5-hour window as well**: the same planner as Claude runs on Codex's own samples and
+     history, seeded from its session logs.
 5. **Record.** Every decision goes to `events.jsonl` (and InfluxDB) with a reason. A state that
    repeats, such as "window running", is recorded when it changes, not every pass.
 
@@ -68,7 +72,7 @@ hours, the plan and its expected windows) so you can check that it learned somet
 
 **Codex** seeds from its own session logs, which record the real window utilization with every
 message (`token_count` events carry a `rate_limits` snapshot), so no price conversion is involved.
-A weekly-only plan has no 5-hour snapshots, so nothing is seeded and it is never planned.
+A weekly-only plan has no 5-hour snapshots, so nothing is seeded (it does not use the planner).
 
 **Claude** seeds on first run 28 days from the Claude Code and pi session logs it can see (and any hosts
 in `SEED_HOSTS`, over ssh), converting API-equivalent cost into percent of the 5-hour budget at a

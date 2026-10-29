@@ -1,6 +1,8 @@
 # The board
 
-`deploy/grafana/defenestrator.json` is a single Grafana dashboard (uid `defenestrator`). It uses
+There are two boards, linked to each other: `deploy/grafana/defenestrator.json` (Claude, uid `defenestrator`) and `deploy/grafana/defenestrator-codex.json` (Codex, uid `defenestrator-codex`; see [the Codex board](#the-codex-board)). The rest of this page describes the Claude board.
+
+Both use a hidden `datasource` variable and are provisioned together. It uses
 a hidden `datasource` variable, so it works with whatever InfluxDB (Flux) data source you have
 connected to the data: the compose stack provisions one, and in an existing Grafana it picks the
 first InfluxDB data source.
@@ -8,15 +10,6 @@ first InfluxDB data source.
 Time zones: charts follow your **browser** time zone. The hour-of-day chart and the daily bars use
 the time zone set in their queries (`America/Denver` in the shipped file; change it at the top of
 those queries).
-
-## Provider
-
-The selector at the top switches every usage panel between **Claude** and **Codex**. A Codex plan
-without a 5-hour window shows "no 5-hour window on this plan" on the 5-hour panels and still charts
-the weekly window. The decision log always shows both providers, and the usage-by-model/project
-panels are Claude only.
-
-![Codex](images/provider-codex.png)
 
 ## Top: right now
 
@@ -100,6 +93,24 @@ Every decision, newest first, from `defenestrator_event`. Kinds: **ping** (start
 **would-ping** (dry run), **wait** (planned a ping for later), **no-ping** (decided not to),
 **window-running**, **quiet-hours**, **skip** (not installed, not logged in, plan without a
 5-hour window) and **error** (for example an expired token).
+
+## The Codex board
+
+![Codex board](images/codex-board.png)
+
+Weekly-first, for the window Codex plans actually have (default range 30 days):
+
+| Panel | What it shows |
+|---|---|
+| Weekly window used / resets / projected at reset / last sample age | the weekly window right now; the projection uses the last 72 hours of the week |
+| Weekly utilization vs even pace | usage against a straight line from 0% to 100% across the window; red above it; orange markers are weekly windows the defenestrator started |
+| Weekly fill rate vs safe rate | percentage points per day against `(100 - used) / days left`, the steady rate that lands on exactly 100% at the reset |
+| Usage per day | percentage points of the weekly window used each day |
+| Hours capped per day | time rate limited |
+| Decision log | Codex decisions (plus sampler errors) |
+| 5-hour window (collapsed row) | for plans that have a 5-hour window: utilization against pace and windows started per day |
+
+The usage-by-model/project panels are Claude only: Codex's logs are not priced.
 
 ## Customizing
 

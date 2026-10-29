@@ -18,6 +18,7 @@ from . import codex, plan
 from .influx import Influx
 
 FIVE_H = plan.WINDOW
+WEEK = 7 * 86400
 BUFFER = plan.BUFFER
 TICK = 600
 # Kinds that repeat every tick while nothing changes; recorded when they change, not every run.
@@ -127,6 +128,11 @@ class Cli:
                               *model, "hi"], 180).returncode == 0
         except (OSError, subprocess.SubprocessError):
             return False
+
+
+def fmt_day(t):
+    """A reset time with its date: weekly resets are days away."""
+    return time.strftime("%a %m/%d %H:%M", time.localtime(t))
 
 
 def window_300(limits):
@@ -308,7 +314,7 @@ class Runner:
                               f"window runs until {plan.fmt(self._num('claude'))}", self._num("claude"))
         self.act("claude", d, sub, lambda: self.cli.claude_ping(), now)
 
-    def act(self, provider, d, sub, ping, now):
+    def act(self, provider, d, sub, ping, now, fallback=None):
         """Carry out a wait/ping decision for a provider whose window is not running."""
         if d.get("action") == "wait":
             at = d.get("at")
@@ -324,9 +330,9 @@ class Runner:
         self._rm(f"{provider}.plan")
         reset = ping()
         if reset is None:
-            reset = now + FIVE_H
+            reset = now + (fallback or FIVE_H)
         self._put(provider, reset)
-        self.log(f"{provider}: {sub}: pinged ({d['reason']}), window resets {plan.fmt(reset)}")
+        self.log(f"{provider}: {sub}: pinged ({d['reason']}), window resets {fmt_day(reset)}")
         self.event(time.time(), provider, "ping", d["reason"], reset, force=True)
 
     def prime_codex(self, now):
@@ -341,8 +347,7 @@ class Runner:
         sub = rl.get("planType") or "unknown"
         five = codex.window(rl, codex.FIVE_H_MINS)
         if not five:
-            self.log(f"codex: {sub}: no 5-hour window (weekly usage is sampled), nothing to start")
-            return self.event(now, "codex", "skip", f"{sub}: no 5-hour window, only the weekly one is sampled")
+            return self.prime_codex_weekly(now, rl, sub)
         used = five.get("usedPercent") or 0
         reset = five.get("resetsAt") or 0
         if used != 0 and reset > now:
@@ -358,11 +363,28 @@ class Runner:
                                                               self._path("history.codex.jsonl")))
         self.act("codex", d, sub, self.codex_ping_reset, now)
 
-    def codex_ping_reset(self):
-        """Ping Codex and return the real 5-hour reset (epoch), or None."""
+    def prime_codex_weekly(self, now, rl, sub):
+        """A plan whose only window is the weekly one: start the next week's window as soon
+        as the last one has ended, so its reset (the wait after a capped week) comes as early
+        as possible. It only matters in a week you hit the cap."""
+        week = codex.window(rl, codex.WEEK_MINS)
+        if not week:
+            self.log(f"codex: {sub}: no window of a known length, skipping")
+            return self.event(now, "codex", "skip", f"{sub}: no 5-hour or weekly window")
+        used, reset = week.get("usedPercent") or 0, week.get("resetsAt") or 0
+        if used != 0 and reset > now:
+            self._put("codex", reset)
+            self._rm("codex.plan")
+            self.log(f"codex: {sub}: weekly window runs until {fmt_day(reset)}")
+            return self.event(now, "codex", "window-running", f"weekly window runs until {fmt_day(reset)}", reset)
+        d = {"action": "ping", "reason": "weekly window ended: start the next one now"}
+        self.act("codex", d, sub, lambda: self.codex_ping_reset(codex.WEEK_MINS), now, fallback=WEEK)
+
+    def codex_ping_reset(self, minutes=codex.FIVE_H_MINS):
+        """Ping Codex and return the real reset (epoch) of its window of that length, or None."""
         if not self.cli.codex_ping():
             return None
-        win = codex.window(self.cli.codex_limits() or {}, codex.FIVE_H_MINS) or {}
+        win = codex.window(self.cli.codex_limits() or {}, minutes) or {}
         return win.get("resetsAt")
 
     # --- scheduling ---

@@ -1,0 +1,949 @@
+{
+  "uid": "defenestrator-codex",
+  "title": "Defenestrator: Codex",
+  "tags": [
+    "agents",
+    "apps",
+    "homelab",
+    "telegraf"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "refresh": "5m",
+  "description": "OpenAI Codex usage as sampled by the defenestrator: its weekly window (and, on plans that have one, a 5-hour window), what the defenestrator did, and when it ran. Data: defenestrator_usage and defenestrator_event with provider=codex.",
+  "links": [
+    {
+      "title": "Claude",
+      "type": "link",
+      "icon": "dashboard",
+      "url": "/d/defenestrator/defenestrator",
+      "targetBlank": false
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Data source",
+        "type": "datasource",
+        "query": "influxdb",
+        "hide": 2,
+        "current": {},
+        "options": [],
+        "refresh": 1
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "name": "Defenestrator pings",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${datasource}"
+        },
+        "enable": true,
+        "iconColor": "orange",
+        "hide": false,
+        "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\" and r.provider == \"codex\" and r.kind == \"ping\")\n  |> map(fn: (r) => ({_time: r._time, _value: \"Defenestrator started a window: \" + r._value}))",
+        "target": {
+          "refId": "Anno",
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\" and r.provider == \"codex\" and r.kind == \"ping\")\n  |> map(fn: (r) => ({_time: r._time, _value: \"Defenestrator started a window: \" + r._value}))"
+        },
+        "filter": {
+          "exclude": false,
+          "ids": [
+            5
+          ]
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Weekly window used",
+      "description": "Account-wide weekly utilization at the last sample. Defenestrator does not change weekly caps.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: -2d)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"codex\" and r._field == \"u7\")\n  |> last()"
+        }
+      ],
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Weekly window resets",
+      "description": "When the weekly window resets.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeFromNow",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: -2d)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"codex\" and r._field == \"reset7\")\n  |> last()\n  |> map(fn: (r) => ({r with _value: r._value * 1000.0}))"
+        }
+      ],
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Weekly: projected at reset",
+      "description": "Where this week ends up at the rate of the last 72 hours of it. 100 or more: you are on course to hit the weekly cap.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "decimals": 0,
+          "noValue": "n/a"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "import \"array\"\n\nnow_s = float(v: int(v: now())) / 1000000000.0\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: -72h)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"codex\" and (r._field == \"u7\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u7 and exists r.reset7 and r.reset7 > now_s)\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> reduce(identity: {n: 0, u0: 0.0, t0: 0.0, u1: 0.0, t1: 0.0, reset: 0.0},\n            fn: (r, accumulator) => ({n: accumulator.n + 1,\n                                      u0: if accumulator.n == 0 then r.u7 else accumulator.u0,\n                                      t0: if accumulator.n == 0 then float(v: int(v: r._time)) / 1000000000.0 else accumulator.t0,\n                                      u1: r.u7, t1: float(v: int(v: r._time)) / 1000000000.0, reset: r.reset7}))\n  |> map(fn: (r) => {\n      slope = if r.t1 > r.t0 and r.u1 > r.u0 then (r.u1 - r.u0) / (r.t1 - r.t0) else 0.0\n      return {_time: now(), _value: r.u1 + slope * (r.reset - now_s)}\n    })"
+        }
+      ],
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Last sample age",
+      "description": "Age of the newest Codex sample. Yellow after 25 minutes, red after an hour: the sampler is failing (see docs/operations.md).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1500
+              },
+              {
+                "color": "red",
+                "value": 3600
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: -2d)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"codex\" and r._field == \"u7\")\n  |> last()\n  |> map(fn: (r) => ({r with _value: float(v: int(v: now()) - int(v: r._time)) / 1000000000.0}))"
+        }
+      ],
+      "id": 4
+    },
+    {
+      "type": "timeseries",
+      "title": "Weekly utilization vs even pace",
+      "description": "Weekly Codex usage against a straight line from 0% at the start of the window to 100% at its reset; red where usage is above the line. Orange markers are weekly windows the defenestrator started.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 16,
+        "x": 0,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "fillOpacity": 20,
+            "lineWidth": 1,
+            "spanNulls": 3900000
+          },
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "even pace"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "gray"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "over pace"
+            },
+            "properties": [
+              {
+                "id": "custom.fillBelowTo",
+                "value": "even pace"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 60
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "weekly used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"codex\" and (r._field == \"u7\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u7 and exists r.reset7)\n  |> map(fn: (r) => {\n      left = (r.reset7 - float(v: int(v: r._time)) / 1000000000.0) / 604800.0\n      pace = if left > 1.0 then 0.0 else if left < 0.0 then 100.0 else 100.0 * (1.0 - left)\n      return {_time: r._time, \"weekly used\": r.u7, \"even pace\": pace, \"over pace\": if r.u7 > pace then r.u7 else pace}\n    })"
+        }
+      ],
+      "id": 5
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Weekly fill rate vs safe rate",
+      "description": "How fast the weekly window fills, in percentage points per day (resets excluded). The dashed safe rate is (100 - used) / days left: the steady rate that lands on exactly 100% at the reset. Above it you will hit the cap early.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 20,
+            "lineWidth": 1,
+            "spanNulls": 3900000
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "safe rate"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "gray"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "points per day"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"codex\" and r._field == \"u7\")\n  |> derivative(unit: 1d, nonNegative: false)\n  |> filter(fn: (r) => r._value >= 0.0)\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> group()\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"points per day\"})"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"codex\" and (r._field == \"u7\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u7 and exists r.reset7)\n  |> map(fn: (r) => ({_time: r._time, _value: (100.0 - r.u7) / ((r.reset7 - float(v: int(v: r._time)) / 1000000000.0) / 86400.0), left: (r.reset7 - float(v: int(v: r._time)) / 1000000000.0) / 86400.0}))\n  |> filter(fn: (r) => r.left > 0.5)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)\n  |> group()\n  |> rename(columns: {_value: \"safe rate\"})"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Usage per day",
+      "description": "Percentage points of the weekly window used each day (the daily rise in weekly utilization; a reset day shows only its part after the reset).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "custom": {
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "xField": "day",
+        "xTickLabelRotation": -45,
+        "showValue": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "import \"timezone\"\nimport \"date\"\n\noption location = timezone.location(name: \"America/Denver\")\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"codex\" and r._field == \"u7\")\n  |> group()\n  |> difference()\n  |> filter(fn: (r) => r._value >= 0.0)\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: true, timeSrc: \"_start\")\n  |> map(fn: (r) => ({r with _value: if exists r._value then r._value else 0.0}))\n  |> map(fn: (r) => {\n      day = date.truncate(t: r._time, unit: 1d)\n      names = [\"Sun\", \"Mon\", \"Tue\", \"Wed\", \"Thu\", \"Fri\", \"Sat\"]\n      return {r with day: names[date.weekDay(t: day)] + \" \" + string(v: date.month(t: day)) + \"/\" + string(v: date.monthDay(t: day))}\n    })\n  |> keep(columns: [\"day\", \"_value\"])\n  |> rename(columns: {_value: \"points used\"})"
+        }
+      ]
+    },
+    {
+      "type": "barchart",
+      "title": "Hours capped per day",
+      "description": "Time spent rate limited each day, counted as 10 minutes per capped sample.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: h",
+          "custom": {
+            "fillOpacity": 80,
+            "axisSoftMax": 1
+          },
+          "min": 0,
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "import \"timezone\"\nimport \"date\"\n\noption location = timezone.location(name: \"America/Denver\")\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"codex\" and r._field == \"capped\")\n  |> map(fn: (r) => ({r with _value: if r._value then 1.0 / 6.0 else 0.0}))\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: true, timeSrc: \"_start\")\n  |> map(fn: (r) => ({r with _value: if exists r._value then r._value else 0.0}))\n  |> map(fn: (r) => {\n      day = date.truncate(t: r._time, unit: 1d)\n      names = [\"Sun\", \"Mon\", \"Tue\", \"Wed\", \"Thu\", \"Fri\", \"Sat\"]\n      return {r with day: names[date.weekDay(t: day)] + \" \" + string(v: date.month(t: day)) + \"/\" + string(v: date.monthDay(t: day))}\n    })\n  |> keep(columns: [\"day\", \"_value\"])\n  |> rename(columns: {_value: \"hours capped\"})"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "xField": "day",
+        "xTickLabelRotation": -45
+      },
+      "id": 8
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Decision log",
+      "description": "Every Codex decision, newest first: weekly windows started, windows running, skips (not logged in) and errors. Sampler errors are shared with the Claude board.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kind"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "ping": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "would-ping": {
+                        "color": "blue",
+                        "index": 1
+                      },
+                      "error": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "skip": {
+                        "color": "orange",
+                        "index": 3
+                      },
+                      "wait": {
+                        "color": "purple",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "reason"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 700
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "time",
+            "desc": true
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\" and (r.provider == \"codex\" or r.provider == \"sampler\"))\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 200)\n  |> map(fn: (r) => ({time: r._time, provider: r.provider, kind: r.kind, reason: r._value}))"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "5-hour window (only for plans that have one)",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "5-hour utilization (last 2 days)",
+          "description": "Account-wide 5-hour usage. The dashed line is an even pace from 0% at the window start to 100% at its reset; the red band is where usage is above it, i.e. you are burning faster than the window allows.",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 0,
+            "y": 26
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "custom": {
+                "fillOpacity": 20,
+                "lineWidth": 1,
+                "spanNulls": 3900000,
+                "thresholdsStyle": {
+                  "mode": "line"
+                },
+                "axisWidth": 60
+              },
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 100
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "noValue": "no 5-hour window on this plan"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "even pace"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "fill": "dash",
+                      "dash": [
+                        10,
+                        10
+                      ]
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "gray"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "5-hour used"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "blue"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "over pace"
+                },
+                "properties": [
+                  {
+                    "id": "custom.fillBelowTo",
+                    "value": "even pace"
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 60
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "red"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "${datasource}"
+              },
+              "query": "import \"internal/debug\"\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"codex\" and (r._field == \"u5\" or r._field == \"reset5\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5)\n  |> map(fn: (r) => {\n      left = if exists r.reset5 then (r.reset5 - float(v: int(v: r._time)) / 1000000000.0) / 18000.0 else -1.0\n      pace = if left < 0.0 then debug.null(type: \"float\") else if left > 1.0 then 0.0 else 100.0 * (1.0 - left)\n      return {_time: r._time, \"5-hour used\": r.u5, \"even pace\": pace, \"over pace\": if exists pace then (if r.u5 > pace then r.u5 else pace) else debug.null(type: \"float\")}\n    })"
+            }
+          ],
+          "timeFrom": "2d",
+          "id": 11,
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            }
+          }
+        },
+        {
+          "type": "barchart",
+          "title": "5-hour windows started per day",
+          "description": "A new 5-hour window shows as a jump of about 5 hours in the reset time between samples. Counts windows however they started (a ping or your own use), so more windows a day is the point of the defenestrator.",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 12,
+            "y": 26
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "fillOpacity": 80
+              },
+              "decimals": 0,
+              "min": 0,
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "green"
+              },
+              "noValue": "no 5-hour window on this plan"
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "${datasource}"
+              },
+              "query": "import \"timezone\"\nimport \"date\"\n\noption location = timezone.location(name: \"America/Denver\")\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"codex\" and r._field == \"reset5\")\n  |> difference(nonNegative: false)\n  |> filter(fn: (r) => r._value > 600.0)\n  |> aggregateWindow(every: 1d, fn: count, createEmpty: true, timeSrc: \"_start\")\n  |> map(fn: (r) => ({r with _value: if exists r._value then r._value else 0}))\n  |> rename(columns: {_value: \"windows started\"})\n  |> map(fn: (r) => {\n      day = date.truncate(t: r._time, unit: 1d)\n      names = [\"Sun\", \"Mon\", \"Tue\", \"Wed\", \"Thu\", \"Fri\", \"Sat\"]\n      return {r with day: names[date.weekDay(t: day)] + \" \" + string(v: date.month(t: day)) + \"/\" + string(v: date.monthDay(t: day))}\n    })\n  |> keep(columns: [\"day\", \"windows started\"])"
+            }
+          ],
+          "options": {
+            "legend": {
+              "showLegend": false
+            },
+            "xTickLabelRotation": 0,
+            "xField": "day"
+          },
+          "id": 12
+        }
+      ]
+    }
+  ]
+}

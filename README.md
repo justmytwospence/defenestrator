@@ -46,11 +46,11 @@ message will start it".
   pi session logs, then from account-wide samples every 10 minutes), not a fixed schedule.
 - **You can see everything.** A ready-made Grafana board shows how fast you are burning each
   window, whether you are on course to hit a cap, which model and project is eating the budget,
-  and a log of every decision it made and why.
+  and a log of every decision it made and why. Codex has its own board.
 - **It is boring to run.** One container, official CLIs only, no API keys, no scraping. A ping
   costs a one-word message to the smallest model.
-- **Claude and Codex.** Both providers are sampled, learned and (where they have a 5-hour window)
-  managed the same way, and the board has a provider switch. See [Claude and Codex](#claude-and-codex).
+- **Claude and Codex.** Each provider is sampled, and gets the windows it really has
+  managed (5-hour for Claude, weekly for Codex), with its own board. See [Claude and Codex](#claude-and-codex).
 
 ## Try it in 60 seconds, with nothing to log in to
 
@@ -133,24 +133,29 @@ Every ping, wait, skip and error with its reason, newest first. Nothing it does 
 
 ## Claude and Codex
 
+Each provider gets a board and a policy for the windows it actually has.
+
 | | Claude (Anthropic) | Codex (OpenAI) |
 |---|---|---|
-| Usage samples every 10 minutes | account-wide, from the usage endpoint | from `codex app-server` (`account/rateLimits/read`) |
-| 5-hour and weekly utilization on the board | yes | yes, whichever windows your plan has |
-| Learned policy and pings | yes | yes, **if your plan has a 5-hour window** |
+| Windows | 5-hour, plus weekly | weekly on most plans (e.g. `prolite`); 5-hour as well on plans that have one |
+| Samples every 10 minutes | account-wide, from the usage endpoint | from `codex app-server` (`account/rateLimits/read`) |
+| What it starts | a fresh 5-hour window, timed by the learned policy | the next **weekly** window as soon as the last one ends (a 5-hour window too, on plans that have one, with the same policy as Claude) |
 | History seeded from | Claude Code and pi session logs | Codex session logs (they record the real windows) |
+| Board | [Defenestrator](docs/dashboard.md) | [Defenestrator: Codex](docs/dashboard.md#the-codex-board), weekly-first |
 | Usage by model and project | yes | not yet (Codex's logs are not priced) |
 
-Codex plans differ. A plan with a 5-hour window is managed exactly like Claude. A **weekly-only**
-plan (for example `prolite`) has nothing for the defenestrator to start, so it only samples and
-charts the weekly window and records why it is not pinging.
+<img src="docs/images/codex-board.png" alt="The Codex board: weekly utilization against an even pace, weekly fill rate, usage per day, hours capped and a decision log" width="900">
 
-<img src="docs/images/provider-codex.png" alt="The board with the provider switch set to Codex" width="900">
+**Why start a weekly window early?** A weekly window opens with your first message after the last
+one ended, so the idle gap between a reset and your first message is time the next reset is pushed
+back. Starting the next window at the reset closes that gap. It changes nothing in a week you
+don't hit the cap, and in a week you do, the reset you are waiting for arrives sooner by the
+length of the gap. It never makes a window bigger.
 
-What has been verified: the Codex weekly-only path runs live against a real `prolite` account
-(sampling, board, decision log), and the 5-hour path is covered by tests built from the same rate-limit
-schema. **The 5-hour Codex path has not yet run against a real 5-hour Codex plan.** If you have one,
-`DRY_RUN=1` plus the Decision log will show what it would do, and a report is welcome.
+**What has been verified.** Codex weekly sampling and the board run live against a real `prolite`
+account. The weekly ping (and the 5-hour path for Codex plans that have one) is covered by tests
+built from Codex's rate-limit schema; neither has fired for real yet (the weekly one will at the
+next reset). `DRY_RUN=1` shows exactly what it would do in the Decision log.
 
 ## How it decides
 

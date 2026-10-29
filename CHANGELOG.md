@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0]
+Codex gets what it actually has: a weekly-first board of its own (`defenestrator-codex.json`,
+linked from the Claude board, which no longer shows the provider switch or any Codex data) and a
+policy for the weekly window. A weekly-only plan (like `prolite`) has its next weekly window started
+as soon as the last one ends; plans that also have a 5-hour window still get the 5-hour policy.
+The Decision log on each board shows only that provider (sampler errors on both). The demo's Codex
+series is now weekly-only.
+
 ## [0.4.0]
 Codex is a first-class provider. Every pass samples its rate limits (`usage.codex.jsonl`); a plan
 with a 5-hour window gets the same learned policy and pings as Claude, seeded from Codex's own

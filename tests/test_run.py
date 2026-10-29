@@ -115,14 +115,37 @@ class RunnerTests(Base):
         self.assertEqual(cli.pings, 0)
         self.assertIn("quiet-hours", [e["kind"] for e in self.events()])
 
-    def test_codex_weekly_only_plan_is_sampled_but_never_pinged(self):
-        cli = FakeCli(codex=True, limits=WEEKLY_ONLY, reset=self.NOW + 100)
+    def test_codex_weekly_only_plan_running_window_is_sampled_and_left_alone(self):
+        limits = {"planType": "prolite", "secondary": None,
+                  "primary": {"usedPercent": 1, "windowDurationMins": 10080, "resetsAt": self.NOW + 6 * 86400}}
+        cli = FakeCli(codex=True, limits=limits)
         self.runner(cli).run_once(self.NOW)
         self.assertEqual(cli.codex_pings, 0)
         samples = plan.load_samples(os.path.join(self.state, "usage.codex.jsonl"))
-        self.assertEqual(len(samples), 1)
         self.assertEqual((samples[0].get("u5"), samples[0]["u7"]), (None, 1.0))
-        self.assertIn(("codex", "skip"), [(e["provider"], e["kind"]) for e in self.events()])
+        self.assertIn(("codex", "window-running"), [(e["provider"], e["kind"]) for e in self.events()])
+        self.assertEqual(int(open(os.path.join(self.state, "codex")).read()), self.NOW + 6 * 86400)
+
+    def test_codex_weekly_only_plan_starts_the_next_week_when_the_last_ended(self):
+        ended = {"planType": "prolite", "primary": {"usedPercent": 0, "windowDurationMins": 10080, "resetsAt": self.NOW - 60}}
+        started = {"planType": "prolite", "primary": {"usedPercent": 0, "windowDurationMins": 10080, "resetsAt": self.NOW + 7 * 86400}}
+        cli = FakeCli(codex=True, limits=[ended, started])
+        self.runner(cli).run_once(self.NOW)
+        self.assertEqual(cli.codex_pings, 1)
+        pings = [e for e in self.events() if e["kind"] == "ping" and e["provider"] == "codex"]
+        self.assertEqual([p["reset"] for p in pings], [self.NOW + 7 * 86400])
+        self.assertEqual(int(open(os.path.join(self.state, "codex")).read()), self.NOW + 7 * 86400)
+
+    def test_codex_weekly_only_plan_dry_run_and_quiet_hours_do_not_ping(self):
+        ended = {"planType": "prolite", "primary": {"usedPercent": 0, "windowDurationMins": 10080, "resetsAt": 5}}
+        cli = FakeCli(codex=True, limits=ended)
+        self.runner(cli, dry=True).run_once(self.NOW)
+        self.assertEqual(cli.codex_pings, 0)
+        self.assertIn(("codex", "would-ping"), [(e["provider"], e["kind"]) for e in self.events()])
+        cli2 = FakeCli(codex=True, limits=ended)
+        hour = time.localtime(self.NOW).tm_hour
+        self.runner(cli2, QUIET_HOURS=f"{hour}-{(hour + 1) % 24}").run_once(self.NOW)
+        self.assertEqual(cli2.codex_pings, 0)
 
     def test_codex_five_hour_window_running_is_left_alone(self):
         limits = {"planType": "plus", "primary": {"usedPercent": 30, "windowDurationMins": 300, "resetsAt": self.NOW + 3600},
@@ -271,3 +294,11 @@ class CodexTests(unittest.TestCase):
     def test_a_weekly_only_log_seeds_nothing(self):
         with tempfile.TemporaryDirectory() as home:
             self.assertEqual(codex.seed_history(1_800_000_000, os.path.join(home, "h.jsonl"), home), 0)
+
+
+class WeeklyDemoTests(unittest.TestCase):
+    def test_weekly_demo_has_no_five_hour_fields_and_starts_windows_by_ping(self):
+        from defenestrator import demo
+        usage, events = demo.generate_weekly(1_800_000_000, days=28)
+        self.assertTrue(all("u5=" not in u and "reset7=" in u and "provider=codex" in u for u in usage))
+        self.assertTrue(any("kind=ping" in e and "weekly window ended" in e for e in events))

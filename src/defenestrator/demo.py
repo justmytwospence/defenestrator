@@ -108,8 +108,41 @@ def generate(now=None, days=14, seed=7, host="demo", provider="claude", scale=1.
     return usage, events, use
 
 
+def generate_weekly(now=None, days=28, seed=11, host="demo", provider="codex", factor=0.075):
+    """A plan whose only window is the weekly one (like Codex's prolite): the window starts when
+    the last one ends (a ping), fills with the same working pattern, and caps in a heavy week."""
+    now = int(now or time.time())
+    rnd = random.Random(seed)
+    start = (now - days * 86400) // BIN * BIN
+    usage, events = [], []
+    reset7, used7, announced = None, 0.0, False
+    day_focus = {}
+    t = start
+    while t <= now:
+        lt = time.localtime(t)
+        focus = day_focus.setdefault((lt.tm_yday, lt.tm_year), rnd.choice([0.7, 1.0, 1.0, 1.3, 1.7]))
+        if reset7 is not None and t >= reset7:
+            reset7, used7, announced = None, 0.0, False
+        if reset7 is None:
+            reset7 = t + WEEK
+            events.append(event_line({"t": t, "provider": provider, "kind": "ping",
+                                      "reason": "weekly window ended: start the next one now", "reset": reset7}, host))
+        if not announced:
+            events.append(event_line({"t": t, "provider": provider, "kind": "window-running",
+                                      "reason": "weekly window runs until " + time.strftime("%a %m/%d %H:%M", time.localtime(reset7)),
+                                      "reset": reset7}, host))
+            announced = True
+        capped = used7 >= 100.0
+        if not capped:
+            used7 = min(100.0, used7 + _rate(t, rnd, focus) * factor)
+            capped = used7 >= 100.0
+        usage.append(usage_line({"t": t, "u7": round(used7, 1), "reset7": float(reset7), "capped": capped}, host, provider))
+        t += BIN
+    return usage, events
+
+
 def run(influx, now=None, days=14):
     usage, events, use = generate(now, days, host=influx.host)
-    cu, ce, _ = generate(now, days, seed=11, host=influx.host, provider="codex", scale=0.55)
+    cu, ce = generate_weekly(now, 31, host=influx.host)
     err = influx.write(usage + cu) or influx.write(events + ce) or influx.write(use)
     return len(usage) + len(cu), len(events) + len(ce), len(use), err
