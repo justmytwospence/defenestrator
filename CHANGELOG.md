@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+The 7-day utilization chart shades red where usage is above the even-pace line, like the 5-hour chart.
+
 ## [0.3.0]
 New README and docs (how it works, the board panel by panel, operating it) with screenshots.
 `compose.demo.yaml` and `defenestrator demo` try the board on invented data with nothing to log in

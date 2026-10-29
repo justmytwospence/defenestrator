@@ -629,7 +629,7 @@
     {
       "type": "timeseries",
       "title": "7-day utilization vs even pace",
-      "description": "Weekly usage against a straight line from 0% at the last weekly reset to 100% at the next. Above the line you are burning faster than an even pace.",
+      "description": "Weekly usage against a straight line from 0% at the last weekly reset to 100% at the next. The red band is where usage is above the line: you are burning faster than an even pace.",
       "datasource": {
         "type": "influxdb",
         "uid": "${datasource}"
@@ -698,6 +698,33 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "over pace"
+            },
+            "properties": [
+              {
+                "id": "custom.fillBelowTo",
+                "value": "even pace"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 60
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
           }
         ]
       },
@@ -708,7 +735,7 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and (r._field == \"u7\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u7 and exists r.reset7)\n  |> map(fn: (r) => {\n      left = (r.reset7 - float(v: int(v: r._time)) / 1000000000.0) / 604800.0\n      return {_time: r._time, \"7-day used\": r.u7, \"even pace\": if left > 1.0 then 0.0 else if left < 0.0 then 100.0 else 100.0 * (1.0 - left)}\n    })"
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and (r._field == \"u7\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u7 and exists r.reset7)\n  |> map(fn: (r) => {\n      left = (r.reset7 - float(v: int(v: r._time)) / 1000000000.0) / 604800.0\n      pace = if left > 1.0 then 0.0 else if left < 0.0 then 100.0 else 100.0 * (1.0 - left)\n      return {_time: r._time, \"7-day used\": r.u7, \"even pace\": pace, \"over pace\": if r.u7 > pace then r.u7 else pace}\n    })"
         }
       ],
       "id": 9
