@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.7.2]
+The windows-per-week chart is a stacked bar per week: each 5-hour window is a segment as tall as the share of it used, coloured to match, so a bar's height is full windows' worth used.
+
 ## [0.7.1]
 Fix: pings logged in the first event format (no `kind`) are scored and counted when telling what started a window.
 

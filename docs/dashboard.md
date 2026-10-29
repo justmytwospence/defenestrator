@@ -108,7 +108,7 @@ Weekly-first, for the window Codex plans actually have (default range 30 days):
 | Usage per day | percentage points of the weekly window used each day |
 | Hours capped per day | time rate limited |
 | How full each 5-hour window got | one bar per window, as tall as its peak utilization, coloured by what started it: orange the defenestrator, blue you, grey unknown (before events were logged). Shares the 7-day chart's time axis |
-| 5-hour windows per 7-day window, coloured by how full each got | a heatmap: one column per week, one cell per window in it (first at the bottom), on a continuous colour scale from barely used to ran out; a taller column is more windows (the ceiling is about 33) |
+| 5-hour windows per 7-day window, sized and coloured by how full each got | one stacked bar per week, one segment per window (first at the bottom), each as tall as the share of the window used and coloured to match, pale (barely used) to red (ran out); the bar's height is full windows' worth used that week |
 | How full windows got: started by the defenestrator vs not | overlaid step histograms of peak utilization, as a share of each group: windows the defenestrator started, the window right after each of those (it carries the rest of that stretch of work), and all others |
 | What each ping saved | a day after each ping, the following 24 hours of real demand replayed with and without it: estimated minutes capped each way, totalled in the legend |
 | Decision log | Codex decisions (plus sampler errors) |
