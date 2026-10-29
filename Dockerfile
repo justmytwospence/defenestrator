@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Defenestrator: the scheduler plus the official Claude Code and Codex CLIs (it pings with
 # them, never with an API key). Bump the pinned CLI versions by hand.
-FROM node:22-bookworm-slim
+FROM node:22-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
 
 ARG CLAUDE_VERSION=2.1.306
 ARG CODEX_VERSION=0.157.1
