@@ -431,7 +431,15 @@
         }
       ],
       "timeFrom": "2d",
-      "id": 5
+      "id": 5,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        }
+      }
     },
     {
       "type": "barchart",
@@ -798,7 +806,8 @@
             "mode": "thresholds"
           },
           "min": 0,
-          "decimals": 0
+          "decimals": 0,
+          "noValue": "no window"
         },
         "overrides": []
       },
@@ -820,7 +829,7 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "import \"array\"\n\nd = from(bucket: v.defaultBucket)\n  |> range(start: -90m)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and (r._field == \"u5\" or r._field == \"reset5\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5)\n  |> map(fn: (r) => ({r with _value: r.u5}))\n\nb = d |> last() |> findRecord(fn: (key) => true, idx: 0)\na = d |> filter(fn: (r) => r.reset5 > b.reset5 - 600.0) |> first() |> findRecord(fn: (key) => true, idx: 0)\ndt = float(v: int(v: b._time) - int(v: a._time)) / 1000000000.0\nslope = if dt > 0.0 and b.u5 > a.u5 then (b.u5 - a.u5) / dt else 0.0\nleft = b.reset5 - float(v: int(v: now())) / 1000000000.0\n\narray.from(rows: [{_time: b._time, _value: if left <= 0.0 then b.u5 else b.u5 + slope * left}])"
+          "query": "import \"array\"\n\nnow_s = float(v: int(v: now())) / 1000000000.0\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: -90m)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and (r._field == \"u5\" or r._field == \"reset5\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5 and r.reset5 > now_s)\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> reduce(identity: {n: 0, u0: 0.0, t0: 0.0, u1: 0.0, t1: 0.0, reset: 0.0},\n            fn: (r, accumulator) => ({n: accumulator.n + 1,\n                                      u0: if accumulator.n == 0 then r.u5 else accumulator.u0,\n                                      t0: if accumulator.n == 0 then float(v: int(v: r._time)) / 1000000000.0 else accumulator.t0,\n                                      u1: r.u5, t1: float(v: int(v: r._time)) / 1000000000.0, reset: r.reset5}))\n  |> map(fn: (r) => {\n      slope = if r.t1 > r.t0 and r.u1 > r.u0 then (r.u1 - r.u0) / (r.t1 - r.t0) else 0.0\n      return {_time: now(), _value: r.u1 + slope * (r.reset - now_s)}\n    })"
         }
       ],
       "id": 11
@@ -863,7 +872,8 @@
             "mode": "thresholds"
           },
           "min": 0,
-          "decimals": 0
+          "decimals": 0,
+          "noValue": "n/a"
         },
         "overrides": []
       },
@@ -885,7 +895,7 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "import \"array\"\n\nd = from(bucket: v.defaultBucket)\n  |> range(start: -48h)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and (r._field == \"u7\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u7 and exists r.reset7)\n  |> map(fn: (r) => ({r with _value: r.u7}))\n\nb = d |> last() |> findRecord(fn: (key) => true, idx: 0)\na = d |> filter(fn: (r) => r.reset7 > b.reset7 - 600.0) |> first() |> findRecord(fn: (key) => true, idx: 0)\ndt = float(v: int(v: b._time) - int(v: a._time)) / 1000000000.0\nslope = if dt > 0.0 and b.u7 > a.u7 then (b.u7 - a.u7) / dt else 0.0\nleft = b.reset7 - float(v: int(v: now())) / 1000000000.0\n\narray.from(rows: [{_time: b._time, _value: if left <= 0.0 then b.u7 else b.u7 + slope * left}])"
+          "query": "import \"array\"\n\nnow_s = float(v: int(v: now())) / 1000000000.0\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: -48h)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and (r._field == \"u7\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u7 and exists r.reset7 and r.reset7 > now_s)\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> reduce(identity: {n: 0, u0: 0.0, t0: 0.0, u1: 0.0, t1: 0.0, reset: 0.0},\n            fn: (r, accumulator) => ({n: accumulator.n + 1,\n                                      u0: if accumulator.n == 0 then r.u7 else accumulator.u0,\n                                      t0: if accumulator.n == 0 then float(v: int(v: r._time)) / 1000000000.0 else accumulator.t0,\n                                      u1: r.u7, t1: float(v: int(v: r._time)) / 1000000000.0, reset: r.reset7}))\n  |> map(fn: (r) => {\n      slope = if r.t1 > r.t0 and r.u1 > r.u0 then (r.u1 - r.u0) / (r.t1 - r.t0) else 0.0\n      return {_time: now(), _value: r.u1 + slope * (r.reset - now_s)}\n    })"
         }
       ],
       "id": 12
@@ -971,7 +981,7 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r._field == \"u5\")\n  |> derivative(unit: 1h, nonNegative: false)\n  |> filter(fn: (r) => r._value >= 0.0)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> rename(columns: {_value: \"points per hour\"})"
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r._field == \"u5\")\n  |> derivative(unit: 1h, nonNegative: false)\n  |> filter(fn: (r) => r._value >= 0.0)\n  |> aggregateWindow(every: 30m, fn: mean, createEmpty: false)\n  |> group()\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> rename(columns: {_value: \"points per hour\"})"
         },
         {
           "refId": "B",
@@ -979,14 +989,14 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and (r._field == \"u5\" or r._field == \"reset5\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5)\n  |> map(fn: (r) => ({_time: r._time, _value: (100.0 - r.u5) / ((r.reset5 - float(v: int(v: r._time)) / 1000000000.0) / 3600.0), left: (r.reset5 - float(v: int(v: r._time)) / 1000000000.0) / 3600.0}))\n  |> filter(fn: (r) => r.left > 1.0)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> rename(columns: {_value: \"safe rate\"})"
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and (r._field == \"u5\" or r._field == \"reset5\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5)\n  |> map(fn: (r) => ({_time: r._time, _value: (100.0 - r.u5) / ((r.reset5 - float(v: int(v: r._time)) / 1000000000.0) / 3600.0), left: (r.reset5 - float(v: int(v: r._time)) / 1000000000.0) / 3600.0}))\n  |> filter(fn: (r) => r.left > 1.0)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> aggregateWindow(every: 30m, fn: mean, createEmpty: false)\n  |> group()\n  |> rename(columns: {_value: \"safe rate\"})"
         }
       ],
       "id": 13
     },
     {
       "type": "barchart",
-      "title": "Average utilization by hour of day",
+      "title": "Average utilization by hour of day (host local time)",
       "description": "Mean 5-hour utilization at each local hour over the last 28 days (ignores the dashboard range): when you are usually working.",
       "datasource": {
         "type": "influxdb",
@@ -1033,7 +1043,7 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "import \"timezone\"\nimport \"date\"\n\noption location = timezone.location(name: \"America/Denver\")\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: -28d)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r._field == \"u5\")\n  |> map(fn: (r) => ({r with hour: date.hour(t: r._time)}))\n  |> group(columns: [\"hour\"])\n  |> mean()\n  |> group()\n  |> sort(columns: [\"hour\"])\n  |> map(fn: (r) => ({hour: if r.hour < 10 then \"0\" + string(v: r.hour) + \":00\" else string(v: r.hour) + \":00\", \"mean 5-hour utilization\": r._value}))"
+          "query": "import \"timezone\"\nimport \"date\"\n\noption location = timezone.location(name: \"America/Denver\")\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: -28d)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r._field == \"u5\")\n  |> map(fn: (r) => ({r with hour: date.hour(t: r._time)}))\n  |> group(columns: [\"hour\"])\n  |> mean()\n  |> group()\n  |> sort(columns: [\"hour\"])\n  |> map(fn: (r) => ({hour: if r.hour < 10 then \"0\" + string(v: r.hour) else string(v: r.hour), \"mean 5-hour utilization\": r._value}))"
         }
       ],
       "options": {
@@ -1222,7 +1232,7 @@
               "mode": "normal",
               "group": "A"
             },
-            "spanNulls": 3900000,
+            "spanNulls": false,
             "axisWidth": 60
           }
         },
@@ -1230,11 +1240,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "sum"
-          ]
+          "showLegend": true,
+          "calcs": []
         }
       },
       "targets": [
@@ -1244,7 +1253,7 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_use\" and r._field == \"pct\")\n  |> group(columns: [\"model\"])\n  |> aggregateWindow(every: 10m, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"model\"])"
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_use\" and r._field == \"pct\")\n  |> group(columns: [\"model\"])\n  |> aggregateWindow(every: 10m, fn: sum, createEmpty: true)\n  |> fill(column: \"_value\", value: 0.0)\n  |> keep(columns: [\"_time\", \"_value\", \"model\"])"
         }
       ],
       "timeFrom": "2d"
@@ -1275,7 +1284,7 @@
               "mode": "normal",
               "group": "A"
             },
-            "spanNulls": 3900000,
+            "spanNulls": false,
             "axisWidth": 60
           }
         },
@@ -1283,11 +1292,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "sum"
-          ]
+          "showLegend": true,
+          "calcs": []
         }
       },
       "targets": [
@@ -1297,7 +1305,7 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "import \"join\"\n\ndata = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_use\" and r._field == \"pct\")\n\ntop = data\n  |> group(columns: [\"project\"])\n  |> sum()\n  |> group()\n  |> top(n: 8, columns: [\"_value\"])\n  |> keep(columns: [\"project\"])\n\njoin.inner(left: data |> group(), right: top, on: (l, r) => l.project == r.project, as: (l, r) => l)\n  |> group(columns: [\"project\"])\n  |> aggregateWindow(every: 10m, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"project\"])"
+          "query": "import \"join\"\n\ndata = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_use\" and r._field == \"pct\")\n\ntop = data\n  |> group(columns: [\"project\"])\n  |> sum()\n  |> group()\n  |> top(n: 8, columns: [\"_value\"])\n  |> keep(columns: [\"project\"])\n\njoin.inner(left: data |> group(), right: top, on: (l, r) => l.project == r.project, as: (l, r) => l)\n  |> group(columns: [\"project\"])\n  |> aggregateWindow(every: 10m, fn: sum, createEmpty: true)\n  |> fill(column: \"_value\", value: 0.0)\n  |> keep(columns: [\"_time\", \"_value\", \"project\"])"
         }
       ],
       "timeFrom": "2d"

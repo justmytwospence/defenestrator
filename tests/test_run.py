@@ -179,3 +179,16 @@ class UseTests(unittest.TestCase):
             self.assertEqual(list(use.values()), [5.0])  # 1M input tokens at $5/M
             self.assertEqual(list(use)[0][1:], ("opus", "app"))
             self.assertEqual(hour % 600, 0)
+
+
+class DemoTests(unittest.TestCase):
+    def test_demo_data_is_plausible_and_deterministic(self):
+        from defenestrator import demo
+        now = 1_800_000_000
+        usage, events, use = demo.generate(now, days=7)
+        self.assertEqual((usage, events, use), demo.generate(now, days=7))
+        self.assertGreater(len(usage), 900)
+        self.assertTrue(any("kind=ping" in e for e in events))
+        self.assertTrue(any(",capped=true" in u or "capped=true" in u for u in usage))
+        self.assertTrue(all(float(u.split("u5=")[1].split(",")[0]) <= 100.0 for u in usage))
+        self.assertTrue(use)

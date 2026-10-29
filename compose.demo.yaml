@@ -1,0 +1,52 @@
+# Try the board in one command, with invented data and nothing to log in to:
+#   docker compose -f compose.demo.yaml up --build
+# then open http://localhost:3000/d/defenestrator (no sign-in; read-only).
+# This never touches ~/.claude or ~/.codex and sends no pings.
+services:
+
+  influxdb:
+    image: influxdb:2.9
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: demo-password-not-secret
+      DOCKER_INFLUXDB_INIT_ORG: defenestrator
+      DOCKER_INFLUXDB_INIT_BUCKET: defenestrator
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: demo-token-not-secret
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 5s
+      retries: 12
+
+  seed:
+    build: .
+    image: defenestrator:local
+    command: ["demo"]
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    environment:
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_TOKEN: demo-token-not-secret
+      INFLUX_ORG: defenestrator
+      INFLUX_BUCKET: defenestrator
+      INFLUX_HOST_TAG: demo
+      TZ: ${TZ:-UTC}
+    restart: "no"
+
+  grafana:
+    image: grafana/grafana:13.0
+    depends_on:
+      - influxdb
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/defenestrator.json
+      INFLUX_TOKEN: demo-token-not-secret
+    volumes:
+      - ./deploy/grafana-provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./deploy/grafana-provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deploy/grafana:/var/lib/grafana/dashboards:ro

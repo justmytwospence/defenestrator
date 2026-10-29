@@ -18,6 +18,7 @@ USAGE = """usage: defenestrator <command>
   seed [host...]  rebuild history.jsonl from local session logs (and ssh hosts)
   costs      print this machine's logged use per 10 minutes (what seed runs over ssh)
   backfill   replay usage.jsonl and events.jsonl into InfluxDB (INFLUX_URL, INFLUX_TOKEN, ...)
+  demo       write two weeks of synthetic data into InfluxDB (to try the board)
   health     exit 0 if the loop ran in the last 25 minutes
 
 Environment: see README (QUIET_HOURS, CLAUDE_MODEL, CODEX_MODEL, CODEX=off, DRY_RUN,
@@ -61,6 +62,15 @@ def main(argv=None):
             return 2
         n, e, err = run.backfill(influx, cfg.state)
         print(f"backfill: {n} samples, {e} events" + (f"; {err}" if err else ""))
+        return 1 if err else 0
+    if cmd == "demo":
+        from . import demo
+        influx = Influx.from_env()
+        if not influx:
+            print("demo: set INFLUX_URL and INFLUX_TOKEN", file=sys.stderr)
+            return 2
+        u, e, n, err = demo.run(influx)
+        print(f"demo: {u} samples, {e} events, {n} usage points" + (f"; {err}" if err else ""))
         return 1 if err else 0
     if cmd == "health":
         return 0 if run.health(cfg.state) else 1
