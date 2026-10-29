@@ -197,22 +197,38 @@ PRICES = {"haiku": (1, 5, 1.25, 0.1), "sonnet": (3, 15, 3.75, 0.3),
           "fable": (15, 75, 18.75, 1.5), "opus": (5, 25, 6.25, 0.5)}  # $/Mtok in, out, write, read
 
 
-def log_costs(home=HOME):
-    """{10-min bin: [api-equivalent $, capped]} from pi (provider anthropic) and Claude
-    Code logs, minus the primer's pings; a rate-limit error marks its bin capped."""
+def project_name(dirname):
+    """A readable project from a session directory name (the path with / turned into -)."""
+    n = dirname.strip("-")
+    n = re.sub(r"^home-[^-]+-", "", n)
+    n = re.sub(r"^(Projects|projects|src|code)-", "", n)
+    n = re.sub(r"-+\.?worktrees-.*$", "", n)  # a worktree counts as its project
+    return n or "home"
+
+
+def model_family(model):
+    m = (model or "").lower()
+    return next((k for k in PRICES if k in m), m or "unknown")
+
+
+def scan_logs(home=HOME, since=0):
+    """Yield (epoch, api-equivalent $, capped, model family, project) for each assistant
+    message in pi (provider anthropic) and Claude Code logs, minus the primer's own pings.
+    `since` skips older files and messages."""
     from glob import glob
-    bins, seen = {}, set()
-
-    def add(ts, cost=0.0, capped=False):
-        t = iso_epoch(ts) if isinstance(ts, str) else None
-        if t is not None:
-            b = bins.setdefault(int(t // BIN * BIN), [0.0, False])
-            b[0] += cost
-            b[1] = b[1] or capped
-
-    files = glob(os.path.join(home, ".pi/agent/sessions/*/*.jsonl"))
-    files += [f for f in glob(os.path.join(home, ".claude/projects/**/*.jsonl"), recursive=True) if "-tmp-tmp" not in f]
-    for path in files:
+    seen = set()
+    files = [(f, os.path.basename(os.path.dirname(f))) for f in glob(os.path.join(home, ".pi/agent/sessions/*/*.jsonl"))]
+    root = os.path.join(home, ".claude/projects")
+    for f in glob(os.path.join(root, "**/*.jsonl"), recursive=True):
+        if "-tmp-tmp" not in f:
+            files.append((f, os.path.relpath(f, root).split(os.sep)[0]))
+    for path, proj in files:
+        try:
+            if os.path.getmtime(path) < since:
+                continue
+        except OSError:
+            continue
+        project = project_name(proj)
         with open(path, errors="ignore") as fh:
             for line in fh:
                 if '"assistant"' not in line:
@@ -222,22 +238,46 @@ def log_costs(home=HOME):
                 except ValueError:
                     continue
                 m = o.get("message") or {}
+                ts = iso_epoch(o.get("timestamp")) if isinstance(o.get("timestamp"), str) else None
+                if ts is None or ts < since:
+                    continue
                 if o.get("type") == "message" and m.get("role") == "assistant" and m.get("provider") == "anthropic":  # pi
                     if "rate_limit_error" in (m.get("errorMessage") or ""):
-                        add(o.get("timestamp"), capped=True)
+                        yield ts, 0.0, True, model_family(m.get("model")), project
                     else:
-                        add(o.get("timestamp"), ((m.get("usage") or {}).get("cost") or {}).get("total") or 0.0)
+                        cost = ((m.get("usage") or {}).get("cost") or {}).get("total") or 0.0
+                        yield ts, cost, False, model_family(m.get("model")), project
                 elif o.get("type") == "assistant":  # Claude Code
                     if o.get("isApiErrorMessage"):
-                        add(o.get("timestamp"), capped="limit" in json.dumps(m.get("content")).lower())
+                        yield ts, 0.0, "limit" in json.dumps(m.get("content")).lower(), model_family(m.get("model")), project
                     elif (m.get("id"), o.get("requestId")) not in seen:
                         seen.add((m.get("id"), o.get("requestId")))
                         u, model = m.get("usage") or {}, (m.get("model") or "").lower()
                         p = next((v for k, v in PRICES.items() if k in model), PRICES["opus"])
-                        add(o.get("timestamp"), (u.get("input_tokens", 0) * p[0] + u.get("output_tokens", 0) * p[1]
-                                                 + u.get("cache_creation_input_tokens", 0) * p[2]
-                                                 + u.get("cache_read_input_tokens", 0) * p[3]) / 1e6)
+                        cost = (u.get("input_tokens", 0) * p[0] + u.get("output_tokens", 0) * p[1]
+                                + u.get("cache_creation_input_tokens", 0) * p[2]
+                                + u.get("cache_read_input_tokens", 0) * p[3]) / 1e6
+                        yield ts, cost, False, model_family(model), project
+
+
+def log_costs(home=HOME):
+    """{10-min bin: [api-equivalent $, capped]}; a rate-limit error marks its bin capped."""
+    bins = {}
+    for ts, cost, capped, _model, _project in scan_logs(home):
+        b = bins.setdefault(int(ts // BIN * BIN), [0.0, False])
+        b[0] += cost
+        b[1] = b[1] or capped
     return bins
+
+
+def use_by_bin(home=HOME, since=0):
+    """{(hour, model, project): api-equivalent $} for the breakdown panels."""
+    out = {}
+    for ts, cost, _capped, model, project in scan_logs(home, since):
+        if cost > 0:
+            k = (int(ts // 3600 * 3600), model, project)
+            out[k] = out.get(k, 0.0) + cost
+    return out
 
 
 def seed(hosts, now, path=None):

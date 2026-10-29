@@ -18,7 +18,9 @@ It also records your account-wide usage every 10 minutes and ships a Grafana boa
 - **A decision log.** Every ping, wait, skip and error, with its reason.
 - **A Grafana board** (`deploy/grafana/defenestrator.json`): 5-hour and 7-day utilization against
   an even pace, projections at reset, window fill rate, an hour-of-day profile, windows started and
-  peak utilization per day, hours capped, ping markers and the decision log.
+  peak utilization per day, hours capped, estimated usage stacked by model and by project (from the
+  Claude Code and pi session logs it can see, so mount `~/.pi/agent/sessions` for pi), ping markers and
+  the decision log.
 
 Official CLIs only, with your subscription logins: API keys in the environment are ignored so
 nothing is ever billed to the API.

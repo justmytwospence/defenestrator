@@ -199,6 +199,7 @@ class Runner:
     def run_once(self, now=None):
         now = int(now or time.time())
         self.sample(now)
+        self.write_use(now)
         self.seed_once(now)
         if self.in_quiet_hours(now):
             self.log(f"quiet hours ({self.cfg.quiet_hours}), skipping")
@@ -220,6 +221,19 @@ class Runner:
                     self.log(f"usage: {err}")
         else:
             self.event(now, "sampler", "error", f"no usage sample: {src}")
+
+    def write_use(self, now, days=1):
+        """Hourly usage by model and project from the session logs on this machine, for the
+        stacked panels. Whole hours only, so a rewrite never shrinks a bar."""
+        if not self.influx:
+            return
+        since = int(now - days * 86400) // 3600 * 3600
+        try:
+            err = self.influx.write_use(plan.use_by_bin(since=since), plan.PCT_PER_DOLLAR)
+        except Exception as e:  # logs are best effort
+            err = f"usage breakdown failed ({type(e).__name__})"
+        if err:
+            self.log(f"use: {err}")
 
     def seed_once(self, now):
         if os.path.exists(self._path("history.jsonl")) or self.cfg.dry:
@@ -370,5 +384,7 @@ def backfill(influx, state):
                 events.append(e)
     except OSError:
         pass
-    err = influx.write_usage(usage) or influx.write_events(events)
+    since = int(time.time() - 28 * 86400) // 3600 * 3600
+    err = (influx.write_usage(usage) or influx.write_events(events)
+           or influx.write_use(plan.use_by_bin(since=since), plan.PCT_PER_DOLLAR))
     return len(usage), len(events), err

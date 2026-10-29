@@ -444,7 +444,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 35
       },
       "fieldConfig": {
         "defaults": {
@@ -492,7 +492,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 35
       },
       "fieldConfig": {
         "defaults": {
@@ -556,7 +556,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 35
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -887,8 +887,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Window fill rate",
-      "description": "How fast the 5-hour window fills, in percentage points per hour (resets excluded). Steep means heavy use.",
+      "title": "Window fill rate vs safe rate",
+      "description": "How fast the 5-hour window fills, in percentage points per hour (resets excluded). The dashed line is the safe rate: what you could keep using from now and still land on exactly 100% at the reset ((100 - used) / hours left). Above it you will hit the cap before the window resets.",
       "datasource": {
         "type": "influxdb",
         "uid": "${datasource}"
@@ -897,7 +897,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 27
       },
       "fieldConfig": {
         "defaults": {
@@ -909,11 +909,55 @@
           },
           "min": 0,
           "color": {
-            "mode": "fixed",
-            "fixedColor": "orange"
+            "mode": "palette-classic"
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "safe rate"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "gray"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "points per hour"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
@@ -923,6 +967,14 @@
             "uid": "${datasource}"
           },
           "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r._field == \"u5\")\n  |> derivative(unit: 1h, nonNegative: false)\n  |> filter(fn: (r) => r._value >= 0.0)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> rename(columns: {_value: \"points per hour\"})"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and (r._field == \"u5\" or r._field == \"reset5\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5)\n  |> map(fn: (r) => ({_time: r._time, _value: (100.0 - r.u5) / ((r.reset5 - float(v: int(v: r._time)) / 1000000000.0) / 3600.0), left: (r.reset5 - float(v: int(v: r._time)) / 1000000000.0) / 3600.0}))\n  |> filter(fn: (r) => r.left > 1.0)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> rename(columns: {_value: \"safe rate\"})"
         }
       ],
       "id": 13
@@ -939,7 +991,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 19
+        "y": 27
       },
       "fieldConfig": {
         "defaults": {
@@ -954,7 +1006,20 @@
             "fixedColor": "blue"
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "hour"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
@@ -963,7 +1028,7 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "import \"timezone\"\nimport \"date\"\n\noption location = timezone.location(name: \"America/Denver\")\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: -28d)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r._field == \"u5\")\n  |> map(fn: (r) => ({r with hour: date.hour(t: r._time)}))\n  |> group(columns: [\"hour\"])\n  |> mean()\n  |> group()\n  |> sort(columns: [\"hour\"])\n  |> map(fn: (r) => ({hour: if r.hour < 10 then \"0\" + string(v: r.hour) else string(v: r.hour), \"mean 5-hour utilization\": r._value}))"
+          "query": "import \"timezone\"\nimport \"date\"\n\noption location = timezone.location(name: \"America/Denver\")\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: -28d)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r._field == \"u5\")\n  |> map(fn: (r) => ({r with hour: date.hour(t: r._time)}))\n  |> group(columns: [\"hour\"])\n  |> mean()\n  |> group()\n  |> sort(columns: [\"hour\"])\n  |> map(fn: (r) => ({hour: if r.hour < 10 then \"0\" + string(v: r.hour) + \":00\" else string(v: r.hour) + \":00\", \"mean 5-hour utilization\": r._value}))"
         }
       ],
       "options": {
@@ -987,7 +1052,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 35
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -1036,7 +1101,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 51
       },
       "fieldConfig": {
         "defaults": {
@@ -1123,6 +1188,108 @@
             "uid": "${datasource}"
           },
           "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\")\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 200)\n  |> map(fn: (r) => ({time: r._time, provider: r.provider, kind: r.kind, reason: r._value}))"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Estimated usage by model",
+      "description": "Estimated share of the 5-hour budget used each hour, by model, from the Claude Code and pi session logs on the machine running the defenestrator (API-equivalent cost x 0.58% per $, measured Oct 2026 on Max). Other devices and claude.ai are not in the logs, so this is a subset of the account-wide utilization above.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_use\" and r._field == \"pct\")\n  |> group(columns: [\"model\"])\n  |> aggregateWindow(every: 1h, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"model\"])"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Estimated usage by project (top 8)",
+      "description": "Same estimate, by project (the session directory; worktrees count toward their project). Only the 8 biggest projects in the time range are shown.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "import \"join\"\n\ndata = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_use\" and r._field == \"pct\")\n\ntop = data\n  |> group(columns: [\"project\"])\n  |> sum()\n  |> group()\n  |> top(n: 8, columns: [\"_value\"])\n  |> keep(columns: [\"project\"])\n\njoin.inner(left: data |> group(), right: top, on: (l, r) => l.project == r.project, as: (l, r) => l)\n  |> group(columns: [\"project\"])\n  |> aggregateWindow(every: 1h, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"project\"])"
         }
       ]
     }

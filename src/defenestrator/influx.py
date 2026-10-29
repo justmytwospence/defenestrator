@@ -5,6 +5,8 @@ data overwrites the same points:
 
   defenestrator_usage  u5, u7 (percent), reset5, reset7 (epoch s), capped (bool)
   defenestrator_event  tags provider, kind; fields reason (string), reset (epoch s)
+  defenestrator_use    tags model, project; fields cost (API-equivalent $), pct (estimated % of the
+                       5-hour budget), one point per hour, from the session logs on this machine
 """
 from __future__ import annotations
 
@@ -35,6 +37,11 @@ def event_line(event, host):
         fields.append(f"reset={float(event['reset'])!r}")
     return (f"defenestrator_event,host={_esc_tag(host)},provider={_esc_tag(event['provider'])},"
             f"kind={_esc_tag(event['kind'])} {','.join(fields)} {int(event['t'])}")
+
+
+def use_line(hour, model, project, cost, pct_per_dollar, host):
+    return (f"defenestrator_use,host={_esc_tag(host)},model={_esc_tag(model)},project={_esc_tag(project)} "
+            f"cost={float(cost)!r},pct={float(cost) * pct_per_dollar!r} {int(hour)}")
 
 
 class Influx:
@@ -69,6 +76,10 @@ class Influx:
 
     def write_usage(self, samples):
         return self.write(usage_line(s, self.host) for s in samples)
+
+    def write_use(self, use, pct_per_dollar):
+        """use: {(hour, model, project): cost}."""
+        return self.write(use_line(h, m, p, c, pct_per_dollar, self.host) for (h, m, p), c in use.items())
 
     def write_events(self, events):
         return self.write(event_line(e, self.host) for e in events)

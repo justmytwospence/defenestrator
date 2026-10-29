@@ -146,10 +146,36 @@ class InfluxTests(unittest.TestCase):
             fake = unittest.mock.Mock()
             fake.write_usage.return_value = None
             fake.write_events.return_value = None
-            n, e, err = run.backfill(fake, d)
+            fake.write_use.return_value = None
+            with unittest.mock.patch.object(plan, "use_by_bin", return_value={}):
+                n, e, err = run.backfill(fake, d)
             self.assertEqual((n, e, err), (1, 1, None))
             self.assertEqual(fake.write_events.call_args[0][0][0]["kind"], "ping")
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UseTests(unittest.TestCase):
+    def test_use_line(self):
+        line = influx.use_line(3600, "opus", "my project", 2.0, 0.5, "NUC")
+        self.assertEqual(line, "defenestrator_use,host=NUC,model=opus,project=my\\ project cost=2.0,pct=1.0 3600")
+
+    def test_project_names(self):
+        self.assertEqual(plan.project_name("-home-spencer-Projects-dotfiles"), "dotfiles")
+        self.assertEqual(plan.project_name("--home-spencer-homelab--"), "homelab")
+        self.assertEqual(plan.project_name("-home-spencer-Projects-fieldgoal-forecasting--worktrees-feat-x"), "fieldgoal-forecasting")
+
+    def test_use_by_bin_groups_by_hour_model_and_project(self):
+        with tempfile.TemporaryDirectory() as home:
+            d = Path(home, ".claude/projects/-home-u-Projects-app")
+            d.mkdir(parents=True)
+            msg = {"type": "assistant", "timestamp": "2026-09-01T10:05:00Z", "requestId": "r1",
+                   "message": {"id": "m1", "model": "claude-opus-5", "usage": {"input_tokens": 1_000_000}}}
+            (d / "s.jsonl").write_text(json.dumps(msg) + "\n")
+            use = plan.use_by_bin(home)
+            (hour,), = [k[0:1] for k in use]
+            self.assertEqual(list(use.values()), [5.0])  # 1M input tokens at $5/M
+            self.assertEqual(list(use)[0][1:], ("opus", "app"))
+            self.assertEqual(hour % 3600, 0)
