@@ -2,8 +2,7 @@
 
 There are two boards, linked to each other: `deploy/grafana/defenestrator.json` (Claude, uid `defenestrator`) and `deploy/grafana/defenestrator-codex.json` (Codex, uid `defenestrator-codex`; see [the Codex board](#the-codex-board)). The rest of this page describes the Claude board.
 
-Both use a hidden `datasource` variable and are provisioned together. It uses
-a hidden `datasource` variable, so it works with whatever InfluxDB (Flux) data source you have
+Both are provisioned together and use a hidden `datasource` variable, so they work with whatever InfluxDB (Flux) data source you have
 connected to the data: the compose stack provisions one, and in an existing Grafana it picks the
 first InfluxDB data source.
 
@@ -15,8 +14,8 @@ those queries).
 
 | Panel | What it shows |
 |---|---|
-| 5-hour window used | Account-wide 5-hour utilization at the last sample |
-| 7-day window used | Weekly utilization at the last sample |
+| 5-hour window used | Gauge: account-wide 5-hour utilization at the last sample |
+| 7-day window used | Gauge: weekly utilization at the last sample |
 | 5-hour / 7-day window resets | When each window ends. A time in the past means no window is running |
 | 5-hour: projected at reset | Where this window ends up at the rate of the last 90 minutes. 100 or more: you will hit the cap early. Shows "no window" when none is running |
 | 7-day: projected at reset | Where the week ends up at the rate of the last 48 hours of this week |
@@ -28,14 +27,21 @@ those queries).
 
 **5-hour utilization (last 2 days).** Account-wide 5-hour usage from the 10-minute samples. The
 dashed line is an *even pace*: 0% at the start of the window (its reset minus five hours) rising
-in a straight line to 100% at its reset. The red band is where your usage is above that line. Orange
-vertical markers are windows the defenestrator started (`defenestrator_event` with kind `ping`).
+in a straight line to 100% at its reset. The red band is where your usage is above that line. Dashed
+vertical lines mark every window start, coloured by what started it (see [What started a
+window](#what-started-a-window)).
 It shows two days on purpose: seven days of five-hour sawteeth is unreadable.
 
 ![7-day utilization](images/seven-day.png)
 
 **7-day utilization vs even pace.** The same idea for the week: a straight line from 0% at the
-last weekly reset to 100% at the next.
+last weekly reset to 100% at the next. It and the charts below it (how full each window got, fill
+rate, capped) start at the beginning of the previous 7-day window and label days by weekday.
+
+![How full each window got](images/fullness.png)
+
+**How full each 5-hour window got.** One bar per window, placed where it started, as tall as the
+highest utilization it reached, coloured by what started it.
 
 ## Estimated usage
 
@@ -61,13 +67,15 @@ This is an **estimate** and only a **subset** of the account total:
 ![Fill rate](images/fill-rate.png)
 
 **Window fill rate vs safe rate.** The orange series is how fast the 5-hour window fills, in
-percentage points per hour (smoothed over 30 minutes, resets excluded). The dashed **safe rate** is
+percentage points per hour (smoothed over 30 minutes, resets excluded). The grey **safe rate** is
 `(100 - used) / hours left`: the steady rate you could keep up from now and land on exactly 100%
-at the reset. When orange is above dashed, you will hit the cap before the reset. The safe rate is
+at the reset. When orange is above grey, you will hit the cap before the reset. The safe rate is
 not drawn in the last hour of a window, where it shoots towards infinity.
 
-**Average utilization by hour of day.** Mean 5-hour utilization at each local hour over the last
-28 days (ignores the time range): when you usually work.
+![Hour of day](images/hour-of-day.png)
+
+**Average utilization by hour of day: weekdays vs weekends.** Mean 5-hour utilization at each local
+hour over the last 28 days (ignores the time range), as two overlaid step lines: when you usually work.
 
 ## Is it working?
 
@@ -79,6 +87,12 @@ in a day is the point.
 
 **Peak 5-hour utilization per day.** The highest utilization sampled each day. Days near 100 are
 days a window ran out.
+
+![Windows per week](images/per-week.png)
+
+**5-hour windows per 7-day window.** One stacked bar per week, one segment per 5-hour window (first
+at the bottom). Each segment is as tall as the share of the window used and coloured to match, pale
+(barely used) to red (ran out), so a bar's height is how many full windows' worth you used that week.
 
 ![Capped](images/capped.png)
 
@@ -107,29 +121,21 @@ Weekly-first, for the window Codex plans actually have (default range 30 days):
 | Weekly fill rate vs safe rate | percentage points per day against `(100 - used) / days left`, the steady rate that lands on exactly 100% at the reset |
 | Usage per day | percentage points of the weekly window used each day |
 | Hours capped per day | time rate limited |
-| How full each 5-hour window got | one bar per window, as tall as its peak utilization, coloured by what started it: orange the defenestrator, blue you, grey unknown (before events were logged). Shares the 7-day chart's time axis |
-| 5-hour windows per 7-day window, sized and coloured by how full each got | one stacked bar per week, one segment per window (first at the bottom), each as tall as the share of the window used and coloured to match, pale (barely used) to red (ran out); the bar's height is full windows' worth used that week |
-| How full windows got: started by the defenestrator vs not | overlaid step histograms of peak utilization, as a share of each group: windows the defenestrator started, the window right after each of those (it carries the rest of that stretch of work), and all others |
-| What each ping saved | a day after each ping, the following 24 hours of real demand replayed with and without it: estimated minutes capped each way, totalled in the legend |
 | Decision log | Codex decisions (plus sampler errors) |
 | 5-hour window (collapsed row) | for plans that have a 5-hour window: utilization against pace and windows started per day |
 
 The usage-by-model/project panels are Claude only: Codex's logs are not priced.
-
-## Customizing
-
-The file is provisioned read-only (`allowUiUpdates: false`) so it stays in sync with the repo. To
-change it, edit the JSON (or save a copy from the UI) and re-provision. Wait a few seconds between
-edits: Grafana's database can briefly lock while it reloads provisioned dashboards.
 
 ## What started a window
 
 Every window start gets a dashed vertical line on the 5-hour, model, project and fullness charts, and each one carries what we can actually know:
 
 - **Orange: the defenestrator.** Its ping and why it chose that moment.
-- **Blue: you.** The first message of the window found in the session logs on the machine the defenestrator runs on: the tool (pi or Claude Code), the session id, the project, the model and the machine. That is the finest level the logs give; they do not record which login or token sent a message.
+- **Blue: you.** The first message of the window found in the session logs on the machine the defenestrator runs on: the tool (pi or Claude Code), the session (pi's session name, else the start of your first prompt), the project, the model and the machine. That is the finest level the logs give; they do not record which login or token sent a message.
 - **Purple: elsewhere.** No message in this machine's logs: another machine, the Claude app or claude.ai started it. (An API token would not start a subscription window at all.)
 - **Grey (on the fullness chart): unknown.** The window is from before events were logged.
+
+![What started each window](images/started-by.png)
 
 The "What started each 5-hour window" table lists the same, newest first, with how full each window got. After upgrading, `defenestrator backfill` describes the windows from your history. Before the first logged event, windows the old primer started cannot be told apart from yours and stay unknown.
 
@@ -141,6 +147,16 @@ The 7-day charts (7-day utilization, how full each window got, fill rate, capped
 
 Two charts answer this from different sides.
 
+![What each ping saved](images/value.png)
+
 **What each ping saved** is the direct estimate. A day after each ping the defenestrator takes the demand actually seen over the next 24 hours (capped time filled in at your usual working rate) and replays it twice through the same window simulation the planner uses: once with the ping, once without it, where your own first message opens the window. The difference is the time capped the ping saved. It assumes you would have worked the same way, so read it as an estimate, and sum it over weeks rather than trusting one bar.
 
+![How full windows got](images/histogram.png)
+
 **How full windows got** shows the mechanism. A ping splits a stretch of work across two windows: the defenestrator's window takes the start and ends part-full, and the window right after it takes the rest. If pings help, that following window runs out less often than other windows do, so compare its step at 100 with the others'. The groups are not a controlled experiment: the defenestrator pings on days it expects heavy use.
+
+## Customizing
+
+The file is provisioned read-only (`allowUiUpdates: false`) so it stays in sync with the repo. To
+change it, edit the JSON (or save a copy from the UI) and re-provision. Wait a few seconds between
+edits: Grafana's database can briefly lock while it reloads provisioned dashboards.

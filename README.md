@@ -90,17 +90,18 @@ explained in [docs/dashboard.md](docs/dashboard.md).
 
 ### Are you burning the window too fast?
 
-<img src="docs/images/five-hour.png" alt="5-hour utilization with a dashed even-pace line, red where usage is above it, and orange markers where the defenestrator started a window" width="900">
+<img src="docs/images/five-hour.png" alt="5-hour utilization with a dashed even-pace line, red where usage is above it, and lines where windows started" width="900">
 
 Account-wide 5-hour usage (every device, claude.ai included). The dashed line is an even pace
 from 0% at the start of the window to 100% at its reset; the red band is where you are ahead of
-it. Orange markers are windows the defenestrator started.
+it. Dashed lines mark every window start, coloured by what started it: orange the defenestrator,
+blue you (with the session, project and model), purple another machine or claude.ai.
 
 ### Will you hit the weekly cap?
 
 <img src="docs/images/seven-day.png" alt="7-day utilization against an even-pace line" width="900">
 
-Weekly usage against a straight line to the next reset, plus a projection of where the week ends
+Weekly usage against a straight line to the next reset, over the previous and current week, plus a projection of where the week ends
 up at your current rate ("7-day: projected at reset" on the board).
 
 ### What is eating the budget?
@@ -117,13 +118,27 @@ which project filled which window.
 <img src="docs/images/fill-rate.png" alt="Window fill rate against the safe rate" width="900">
 
 The rate you are filling the window, against the **safe rate**: the steady pace that would land
-you on exactly 100% at the reset. Above the dashed line, you are going to hit the cap early.
+you on exactly 100% at the reset. Above the grey line, you are going to hit the cap early.
+
+### What started each window?
+
+<img src="docs/images/started-by.png" alt="Table of 5-hour windows with who started each, the session detail and how full it got" width="900">
+
+Every window with what started it: the defenestrator's ping, or your first message (pi's session
+name or your first prompt, the project, the model and the machine), or something outside this
+machine's logs.
 
 ### Is it earning its keep?
 
-<img src="docs/images/windows-per-day.png" alt="Windows started per day" width="440"> <img src="docs/images/capped.png" alt="Hours capped per day" width="440">
+<img src="docs/images/value.png" alt="Estimated minutes capped in the 24 hours after each ping, with and without it" width="900">
 
-Windows started per day (more is the point) and the hours you spent capped.
+A day after each ping, the 24 hours that followed are replayed with and without it: the estimated
+time capped each way. The legend totals the difference.
+
+<img src="docs/images/per-week.png" alt="Stacked bars per week, one segment per 5-hour window sized and coloured by how full it got" width="440"> <img src="docs/images/histogram.png" alt="Overlaid histograms of how full windows got, by who started them" width="440">
+
+How many windows each week held and how full each got, and how full the defenestrator's windows
+(and the ones right after them) got compared with the rest.
 
 ### Why did it do that?
 
