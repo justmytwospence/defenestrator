@@ -883,7 +883,7 @@
       "id": 10
     },
     {
-      "type": "gauge",
+      "type": "stat",
       "title": "5-hour: projected at reset",
       "description": "Where this window ends up if usage continues at its rate over the last 90 minutes of the same window. 100 or more means you will hit the cap before it resets. Without a running window it shows the last value.",
       "datasource": {
@@ -921,24 +921,22 @@
           },
           "min": 0,
           "decimals": 0,
-          "noValue": "no window",
-          "max": 150
+          "noValue": "no window"
         },
         "overrides": []
       },
       "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        },
-        "showThresholdMarkers": true,
-        "showThresholdLabels": false,
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "sizing": "auto"
+        }
       },
       "targets": [
         {
@@ -953,7 +951,7 @@
       "id": 11
     },
     {
-      "type": "gauge",
+      "type": "stat",
       "title": "7-day: projected at reset",
       "description": "Where the week ends up if usage continues at its rate over the last 48 hours of this week (since the last weekly reset). 100 or more means you are on course to hit the weekly cap.",
       "datasource": {
@@ -991,24 +989,22 @@
           },
           "min": 0,
           "decimals": 0,
-          "noValue": "n/a",
-          "max": 150
+          "noValue": "n/a"
         },
         "overrides": []
       },
       "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        },
-        "showThresholdMarkers": true,
-        "showThresholdLabels": false,
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "sizing": "auto"
+        }
       },
       "targets": [
         {

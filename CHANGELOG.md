@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.7.4]
+Projections are plain numbers again; only current utilization is a gauge.
+
 ## [0.7.3]
 Window starters name the session: pi's session name, else the start of the first prompt (Claude Code). Utilization and projection numbers are gauges.
 

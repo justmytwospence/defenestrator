@@ -200,7 +200,7 @@
       "id": 2
     },
     {
-      "type": "gauge",
+      "type": "stat",
       "title": "Weekly: projected at reset",
       "description": "Where this week ends up at the rate of the last 72 hours of it. 100 or more: you are on course to hit the weekly cap.",
       "datasource": {
@@ -238,24 +238,22 @@
           },
           "min": 0,
           "decimals": 0,
-          "noValue": "n/a",
-          "max": 150
+          "noValue": "n/a"
         },
         "overrides": []
       },
       "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        },
-        "showThresholdMarkers": true,
-        "showThresholdLabels": false,
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "sizing": "auto"
+        }
       },
       "targets": [
         {
