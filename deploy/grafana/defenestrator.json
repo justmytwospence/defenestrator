@@ -324,7 +324,8 @@
             "spanNulls": 3900000,
             "thresholdsStyle": {
               "mode": "line"
-            }
+            },
+            "axisWidth": 60
           },
           "min": 0,
           "max": 100,
@@ -589,6 +590,10 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
               }
             ]
           }
@@ -608,7 +613,7 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r._field == \"capped\")\n  |> map(fn: (r) => ({r with _value: if r._value then 1 else 0}))\n  |> rename(columns: {_value: \"capped\"})"
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r._field == \"capped\")\n  |> group()\n  |> map(fn: (r) => ({r with _value: if r._value then 1 else 0}))\n  |> rename(columns: {_value: \"capped\"})\n  |> keep(columns: [\"_time\", \"capped\"])"
         }
       ],
       "id": 8
@@ -1194,8 +1199,8 @@
     {
       "id": 17,
       "type": "timeseries",
-      "title": "Estimated usage by model",
-      "description": "Estimated share of the 5-hour budget used each hour, by model, from the Claude Code and pi session logs on the machine running the defenestrator (API-equivalent cost x 0.58% per $, measured Oct 2026 on Max). Other devices and claude.ai are not in the logs, so this is a subset of the account-wide utilization above.",
+      "title": "Estimated usage by model (last 2 days)",
+      "description": "Estimated share of the 5-hour budget used in each 10 minutes, by model, from the Claude Code and pi session logs on the machine running the defenestrator (API-equivalent cost x 0.58% per $, measured Oct 2026 on Max). Other devices and claude.ai are not in the logs, so this is a subset of the account-wide utilization above.",
       "datasource": {
         "type": "influxdb",
         "uid": "${datasource}"
@@ -1217,7 +1222,8 @@
               "mode": "normal",
               "group": "A"
             },
-            "spanNulls": false
+            "spanNulls": 3900000,
+            "axisWidth": 60
           }
         },
         "overrides": []
@@ -1238,15 +1244,16 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_use\" and r._field == \"pct\")\n  |> group(columns: [\"model\"])\n  |> aggregateWindow(every: 1h, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"model\"])"
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_use\" and r._field == \"pct\")\n  |> group(columns: [\"model\"])\n  |> aggregateWindow(every: 10m, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"model\"])"
         }
-      ]
+      ],
+      "timeFrom": "2d"
     },
     {
       "id": 18,
       "type": "timeseries",
-      "title": "Estimated usage by project (top 8)",
-      "description": "Same estimate, by project (the session directory; worktrees count toward their project). Only the 8 biggest projects in the time range are shown.",
+      "title": "Estimated usage by project, top 8 (last 2 days)",
+      "description": "Same estimate (per 10 minutes), by project (the session directory; worktrees count toward their project). Only the 8 biggest projects in the time range are shown.",
       "datasource": {
         "type": "influxdb",
         "uid": "${datasource}"
@@ -1268,7 +1275,8 @@
               "mode": "normal",
               "group": "A"
             },
-            "spanNulls": false
+            "spanNulls": 3900000,
+            "axisWidth": 60
           }
         },
         "overrides": []
@@ -1289,9 +1297,10 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "import \"join\"\n\ndata = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_use\" and r._field == \"pct\")\n\ntop = data\n  |> group(columns: [\"project\"])\n  |> sum()\n  |> group()\n  |> top(n: 8, columns: [\"_value\"])\n  |> keep(columns: [\"project\"])\n\njoin.inner(left: data |> group(), right: top, on: (l, r) => l.project == r.project, as: (l, r) => l)\n  |> group(columns: [\"project\"])\n  |> aggregateWindow(every: 1h, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"project\"])"
+          "query": "import \"join\"\n\ndata = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_use\" and r._field == \"pct\")\n\ntop = data\n  |> group(columns: [\"project\"])\n  |> sum()\n  |> group()\n  |> top(n: 8, columns: [\"_value\"])\n  |> keep(columns: [\"project\"])\n\njoin.inner(left: data |> group(), right: top, on: (l, r) => l.project == r.project, as: (l, r) => l)\n  |> group(columns: [\"project\"])\n  |> aggregateWindow(every: 10m, fn: sum, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"project\"])"
         }
-      ]
+      ],
+      "timeFrom": "2d"
     }
   ],
   "templating": {

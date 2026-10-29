@@ -271,11 +271,11 @@ def log_costs(home=HOME):
 
 
 def use_by_bin(home=HOME, since=0):
-    """{(hour, model, project): api-equivalent $} for the breakdown panels."""
+    """{(10-minute bin, model, project): api-equivalent $} for the breakdown panels."""
     out = {}
     for ts, cost, _capped, model, project in scan_logs(home, since):
         if cost > 0:
-            k = (int(ts // 3600 * 3600), model, project)
+            k = (int(ts // BIN * BIN), model, project)
             out[k] = out.get(k, 0.0) + cost
     return out
 

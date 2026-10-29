@@ -6,7 +6,7 @@ data overwrites the same points:
   defenestrator_usage  u5, u7 (percent), reset5, reset7 (epoch s), capped (bool)
   defenestrator_event  tags provider, kind; fields reason (string), reset (epoch s)
   defenestrator_use    tags model, project; fields cost (API-equivalent $), pct (estimated % of the
-                       5-hour budget), one point per hour, from the session logs on this machine
+                       5-hour budget), one point per 10 minutes, from the session logs on this machine
 """
 from __future__ import annotations
 
@@ -39,9 +39,9 @@ def event_line(event, host):
             f"kind={_esc_tag(event['kind'])} {','.join(fields)} {int(event['t'])}")
 
 
-def use_line(hour, model, project, cost, pct_per_dollar, host):
+def use_line(t, model, project, cost, pct_per_dollar, host):
     return (f"defenestrator_use,host={_esc_tag(host)},model={_esc_tag(model)},project={_esc_tag(project)} "
-            f"cost={float(cost)!r},pct={float(cost) * pct_per_dollar!r} {int(hour)}")
+            f"cost={float(cost)!r},pct={float(cost) * pct_per_dollar!r} {int(t)}")
 
 
 class Influx:

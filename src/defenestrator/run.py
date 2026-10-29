@@ -223,8 +223,8 @@ class Runner:
             self.event(now, "sampler", "error", f"no usage sample: {src}")
 
     def write_use(self, now, days=1):
-        """Hourly usage by model and project from the session logs on this machine, for the
-        stacked panels. Whole hours only, so a rewrite never shrinks a bar."""
+        """Usage per 10 minutes by model and project from the session logs on this machine, for
+        the stacked panels. Starts on an hour boundary; a rewrite repeats the same timestamps."""
         if not self.influx:
             return
         since = int(now - days * 86400) // 3600 * 3600

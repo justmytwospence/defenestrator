@@ -175,7 +175,7 @@ class UseTests(unittest.TestCase):
                    "message": {"id": "m1", "model": "claude-opus-5", "usage": {"input_tokens": 1_000_000}}}
             (d / "s.jsonl").write_text(json.dumps(msg) + "\n")
             use = plan.use_by_bin(home)
-            (hour,), = [k[0:1] for k in use]
+            (hour,), = [k[0:1] for k in use]  # the 10-minute bin
             self.assertEqual(list(use.values()), [5.0])  # 1M input tokens at $5/M
             self.assertEqual(list(use)[0][1:], ("opus", "app"))
-            self.assertEqual(hour % 3600, 0)
+            self.assertEqual(hour % 600, 0)

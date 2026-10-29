@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1]
+The usage-by-model and by-project panels are per 10 minutes (was hourly) over the last 2 days,
+so they line up with the 5-hour utilization chart (same range, same axis width). `defenestrator_use`
+points are now 10-minute bins: delete the old hourly ones before upgrading
+(`influx delete --predicate '_measurement="defenestrator_use"'`) and run `backfill`. The Capped
+timeline now colors by threshold and has a plain label.
+
 ## [0.2.0]
 Board: stacked usage by model and by project (estimated from the session logs on the machine
 running it, written hourly as `defenestrator_use`); the fill-rate chart gains a dashed safe-rate
