@@ -1,0 +1,14 @@
+apiVersion: 1
+datasources:
+  - name: influxdb
+    uid: defenestrator-influxdb
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: defenestrator
+      defaultBucket: defenestrator
+    secureJsonData:
+      token: ${INFLUX_TOKEN}

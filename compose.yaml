@@ -1,0 +1,71 @@
+# The whole stack: the defenestrator, InfluxDB for its history and Grafana with the board
+# provisioned. `cp .env.example .env`, edit it, log in once (README), then `docker compose up -d`.
+# Board: http://localhost:3000/d/defenestrator
+services:
+
+  defenestrator:
+    build:
+      context: .
+      args:
+        UID: ${HOST_UID:-1000}
+        GID: ${HOST_GID:-1000}
+    image: defenestrator:local
+    restart: unless-stopped
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-UTC}
+      QUIET_HOURS: ${QUIET_HOURS:-}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-haiku}
+      CODEX: ${CODEX:-auto}
+      CODEX_MODEL: ${CODEX_MODEL:-}
+      DRY_RUN: ${DRY_RUN:-}
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_TOKEN: ${INFLUX_TOKEN:?set INFLUX_TOKEN in .env}
+      INFLUX_ORG: defenestrator
+      INFLUX_BUCKET: defenestrator
+    volumes:
+      - ./state:/state
+      # The subscription logins, read-write so the CLIs can refresh their tokens.
+      - ${CLAUDE_DIR:-~/.claude}:/home/app/.claude
+      - ${CODEX_DIR:-~/.codex}:/home/app/.codex
+
+  influxdb:
+    image: influxdb:2.9
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_PASSWORD:?set INFLUX_PASSWORD in .env}
+      DOCKER_INFLUXDB_INIT_ORG: defenestrator
+      DOCKER_INFLUXDB_INIT_BUCKET: defenestrator
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN:?set INFLUX_TOKEN in .env}
+    volumes:
+      - influxdb:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      retries: 6
+
+  grafana:
+    image: grafana/grafana:13.0
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/defenestrator.json
+      INFLUX_TOKEN: ${INFLUX_TOKEN}
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./deploy/grafana-provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./deploy/grafana-provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deploy/grafana:/var/lib/grafana/dashboards:ro
+
+volumes:
+  influxdb:
+  grafana:

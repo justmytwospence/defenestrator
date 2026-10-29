@@ -1,0 +1,18 @@
+[project]
+name = "defenestrator"
+version = "0.1.0"
+description = "Throw out spent 5-hour Claude and Codex usage windows and start fresh ones, with a Grafana board."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+defenestrator = "defenestrator.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
