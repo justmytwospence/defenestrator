@@ -477,16 +477,6 @@
             },
             "properties": [
               {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [
-                    10,
-                    10
-                  ]
-                }
-              },
-              {
                 "id": "custom.fillOpacity",
                 "value": 0
               },

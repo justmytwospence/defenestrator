@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.6.0]
+Window starts say what started them: new `started` and `started-elsewhere` events carry the tool, session, project, model and machine of the first message (from the session logs), orange/blue/purple lines mark every start, and a table lists them. `backfill` describes past windows (run it once after upgrading).
+The 7-day charts start at the beginning of the previous 7-day window. The hour-of-day chart overlays weekdays and weekends. The safe-rate line is solid.
+
 ## [0.5.3]
 What started each 5-hour window is now visible: orange (defenestrator) and blue (you) lines mark every window start on the 5-hour, model and project charts. New chart "How full each 5-hour window got" (one bar per window, peak utilization, coloured by starter), and the per-week window chart is split by how full the windows were.
 

@@ -130,6 +130,25 @@ class Cli:
             return False
 
 
+def starter_event(reset, pings, host, now, floor_t=0):
+    """The event saying what started the 5-hour window ending at `reset`, or None when a ping of
+    ours did (it is already logged) or nothing can be said. The first message in this machine's
+    session logs is the starter; none means another machine, the app or the web started it,
+    unless the window predates `floor_t` (the first event ever logged, when nothing was recorded
+    about pings and the old primer's messages are invisible in the logs)."""
+    if any(abs(p - reset) < 1800 for p in pings):
+        return None
+    start = reset - FIVE_H
+    m = plan.first_message(start, min(start + 3900, now))
+    if m:
+        return {"t": int(m["t"]), "provider": "claude", "kind": "started", "reset": int(reset),
+                "reason": "You started this window: " + plan.describe_starter(m, host)}
+    if start < floor_t:
+        return None
+    return {"t": int(start), "provider": "claude", "kind": "started-elsewhere", "reset": int(reset),
+            "reason": f"Not in {host}'s session logs: another machine, the app or the web started this window"}
+
+
 def fmt_day(t):
     """A reset time with its date: weekly resets are days away."""
     return time.strftime("%a %m/%d %H:%M", time.localtime(t))
@@ -222,6 +241,10 @@ class Runner:
         self.log("claude: " + plan.describe_sample(s, src, now))
         if s:
             self.push_usage([s], "claude")
+            try:
+                self.note_window_start(s, now)
+            except Exception as e:  # attribution is best effort
+                self.log(f"claude: could not tell what started the window ({type(e).__name__})")
         else:
             self.event(now, "sampler", "error", f"no usage sample: {src}")
         self.rl = None
@@ -235,6 +258,34 @@ class Runner:
             else:
                 self.log("codex: no usage sample")
                 self.event(now, "codex", "error", "could not read rate limits")
+
+    def note_window_start(self, s, now):
+        """When the sample shows a new 5-hour window that we did not ping, log what started it."""
+        r = s.get("reset5")
+        if not r:
+            return
+        last = self._num("claude.lastwin", 0)
+        if r > last + 600:
+            self._put("claude.lastwin", round(r))
+            if last:  # the first run only learns the current window; backfill describes history
+                pings = [e["reset"] for e in self.read_events() if e.get("kind") == "ping" and e.get("provider") == "claude" and e.get("reset")]
+                host = self.influx.host if self.influx else os.uname().nodename
+                e = starter_event(r, pings, host, now)
+                if e:
+                    self.event(e["t"], "claude", e["kind"], e["reason"], e["reset"], force=True)
+
+    def read_events(self):
+        out = []
+        try:
+            with open(self._path("events.jsonl")) as f:
+                for line in f:
+                    try:
+                        out.append(json.loads(line))
+                    except ValueError:
+                        pass
+        except OSError:
+            pass
+        return out
 
     def push_usage(self, samples, provider):
         if self.influx:
@@ -440,6 +491,23 @@ def backfill(influx, state):
     except OSError:
         pass
     since = int(time.time() - 28 * 86400) // 3600 * 3600
+    now = int(time.time())
+    have = {e.get("reset") for e in events if e.get("kind") in ("started", "started-elsewhere", "ping")}
+    pings = [e["reset"] for e in events if e.get("kind") == "ping" and e.get("reset")]
+    floor_t = min((e["t"] for e in events if e.get("t")), default=0)
+    seen_resets = []
+    for smp in usage:
+        r = smp.get("reset5")
+        if r and not any(abs(r - x) < 600 for x in seen_resets):
+            seen_resets.append(r)
+    for r in seen_resets:
+        if r - FIVE_H > since and not any(h and abs(h - r) < 1800 for h in have):
+            try:
+                e = starter_event(r, pings, influx.host, now, floor_t)
+            except Exception:
+                e = None
+            if e:
+                events.append(e)
     err = (influx.write_usage(usage, "claude") or influx.write_usage(codex_usage, "codex")
            or influx.write_events(events)
            or influx.write_use(plan.use_by_bin(since=since), plan.PCT_PER_DOLLAR))

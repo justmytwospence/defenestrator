@@ -38,10 +38,10 @@
         "enable": true,
         "iconColor": "orange",
         "hide": false,
-        "query": "import \"array\"\nimport \"date\"\nimport \"internal/debug\"\n\nwindows = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5 and exists r.reset7)\n  |> map(fn: (r) => ({r with win: int(v: r.reset5 / 600.0 + 0.5)}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"u5\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, win: r.win, peak: r.u5, wreset: r.reset5, week: int(v: r.reset7 / 43200.0 + 0.5)}))\n\npings = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r.provider == \"claude\" and r.kind == \"ping\" and r._field == \"reset\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, preset: r._value}))\n\nfirstEvent = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\")\n  |> group()\n  |> first()\n  |> map(fn: (r) => ({k: 1, since: float(v: int(v: r._time)) / 1000000000.0}))\n\nwithPings = union(tables: [pings, array.from(rows: [{k: 1, preset: 0.0}])])\n\nmatched = join(tables: {w: windows, p: withPings}, on: [\"k\"])\n  |> map(fn: (r) => ({k: r.k, win: r.win, peak: r.peak, wreset: r.wreset, week: r.week, hit: if r.preset > 0.0 and r.preset - r.wreset < 1800.0 and r.wreset - r.preset < 1800.0 then 1 else 0}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"hit\")\n  |> group()\n\n// who started each window: defenestrator (a ping's reset matches this window's), you (events were\n// being logged and no ping matches), or unknown (the window is from before events were logged)\nclassified = join(tables: {a: matched, b: firstEvent}, on: [\"k\"])\n  |> map(fn: (r) => ({win: r.win, peak: r.peak, week: r.week, start: r.wreset - 18000.0,\n      who: if r.hit == 1 then \"defenestrator\" else if r.wreset - 18000.0 >= r.since then \"you\" else \"unknown\"}))\n\nclassified\n  |> filter(fn: (r) => r.who == \"defenestrator\")\n  |> map(fn: (r) => ({_time: time(v: int(v: r.start) * 1000000000), _value: \"Defenestrator started a window, peak \" + string(v: int(v: r.peak)) + \"%\"}))\n",
+        "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\" and r.provider == \"claude\" and r.kind == \"ping\")\n  |> map(fn: (r) => ({_time: r._time, _value: \"Defenestrator started a window: \" + r._value}))",
         "target": {
           "refId": "Anno",
-          "query": "import \"array\"\nimport \"date\"\nimport \"internal/debug\"\n\nwindows = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5 and exists r.reset7)\n  |> map(fn: (r) => ({r with win: int(v: r.reset5 / 600.0 + 0.5)}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"u5\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, win: r.win, peak: r.u5, wreset: r.reset5, week: int(v: r.reset7 / 43200.0 + 0.5)}))\n\npings = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r.provider == \"claude\" and r.kind == \"ping\" and r._field == \"reset\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, preset: r._value}))\n\nfirstEvent = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\")\n  |> group()\n  |> first()\n  |> map(fn: (r) => ({k: 1, since: float(v: int(v: r._time)) / 1000000000.0}))\n\nwithPings = union(tables: [pings, array.from(rows: [{k: 1, preset: 0.0}])])\n\nmatched = join(tables: {w: windows, p: withPings}, on: [\"k\"])\n  |> map(fn: (r) => ({k: r.k, win: r.win, peak: r.peak, wreset: r.wreset, week: r.week, hit: if r.preset > 0.0 and r.preset - r.wreset < 1800.0 and r.wreset - r.preset < 1800.0 then 1 else 0}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"hit\")\n  |> group()\n\n// who started each window: defenestrator (a ping's reset matches this window's), you (events were\n// being logged and no ping matches), or unknown (the window is from before events were logged)\nclassified = join(tables: {a: matched, b: firstEvent}, on: [\"k\"])\n  |> map(fn: (r) => ({win: r.win, peak: r.peak, week: r.week, start: r.wreset - 18000.0,\n      who: if r.hit == 1 then \"defenestrator\" else if r.wreset - 18000.0 >= r.since then \"you\" else \"unknown\"}))\n\nclassified\n  |> filter(fn: (r) => r.who == \"defenestrator\")\n  |> map(fn: (r) => ({_time: time(v: int(v: r.start) * 1000000000), _value: \"Defenestrator started a window, peak \" + string(v: int(v: r.peak)) + \"%\"}))\n"
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\" and r.provider == \"claude\" and r.kind == \"ping\")\n  |> map(fn: (r) => ({_time: r._time, _value: \"Defenestrator started a window: \" + r._value}))"
         },
         "filter": {
           "exclude": false,
@@ -62,10 +62,34 @@
         "enable": true,
         "iconColor": "blue",
         "hide": false,
-        "query": "import \"array\"\nimport \"date\"\nimport \"internal/debug\"\n\nwindows = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5 and exists r.reset7)\n  |> map(fn: (r) => ({r with win: int(v: r.reset5 / 600.0 + 0.5)}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"u5\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, win: r.win, peak: r.u5, wreset: r.reset5, week: int(v: r.reset7 / 43200.0 + 0.5)}))\n\npings = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r.provider == \"claude\" and r.kind == \"ping\" and r._field == \"reset\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, preset: r._value}))\n\nfirstEvent = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\")\n  |> group()\n  |> first()\n  |> map(fn: (r) => ({k: 1, since: float(v: int(v: r._time)) / 1000000000.0}))\n\nwithPings = union(tables: [pings, array.from(rows: [{k: 1, preset: 0.0}])])\n\nmatched = join(tables: {w: windows, p: withPings}, on: [\"k\"])\n  |> map(fn: (r) => ({k: r.k, win: r.win, peak: r.peak, wreset: r.wreset, week: r.week, hit: if r.preset > 0.0 and r.preset - r.wreset < 1800.0 and r.wreset - r.preset < 1800.0 then 1 else 0}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"hit\")\n  |> group()\n\n// who started each window: defenestrator (a ping's reset matches this window's), you (events were\n// being logged and no ping matches), or unknown (the window is from before events were logged)\nclassified = join(tables: {a: matched, b: firstEvent}, on: [\"k\"])\n  |> map(fn: (r) => ({win: r.win, peak: r.peak, week: r.week, start: r.wreset - 18000.0,\n      who: if r.hit == 1 then \"defenestrator\" else if r.wreset - 18000.0 >= r.since then \"you\" else \"unknown\"}))\n\nclassified\n  |> filter(fn: (r) => r.who == \"you\")\n  |> map(fn: (r) => ({_time: time(v: int(v: r.start) * 1000000000), _value: \"You started a window, peak \" + string(v: int(v: r.peak)) + \"%\"}))\n",
+        "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\" and r.provider == \"claude\" and r.kind == \"started\")\n  |> map(fn: (r) => ({_time: r._time, _value: \"\" + r._value}))",
         "target": {
           "refId": "Anno",
-          "query": "import \"array\"\nimport \"date\"\nimport \"internal/debug\"\n\nwindows = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5 and exists r.reset7)\n  |> map(fn: (r) => ({r with win: int(v: r.reset5 / 600.0 + 0.5)}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"u5\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, win: r.win, peak: r.u5, wreset: r.reset5, week: int(v: r.reset7 / 43200.0 + 0.5)}))\n\npings = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r.provider == \"claude\" and r.kind == \"ping\" and r._field == \"reset\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, preset: r._value}))\n\nfirstEvent = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\")\n  |> group()\n  |> first()\n  |> map(fn: (r) => ({k: 1, since: float(v: int(v: r._time)) / 1000000000.0}))\n\nwithPings = union(tables: [pings, array.from(rows: [{k: 1, preset: 0.0}])])\n\nmatched = join(tables: {w: windows, p: withPings}, on: [\"k\"])\n  |> map(fn: (r) => ({k: r.k, win: r.win, peak: r.peak, wreset: r.wreset, week: r.week, hit: if r.preset > 0.0 and r.preset - r.wreset < 1800.0 and r.wreset - r.preset < 1800.0 then 1 else 0}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"hit\")\n  |> group()\n\n// who started each window: defenestrator (a ping's reset matches this window's), you (events were\n// being logged and no ping matches), or unknown (the window is from before events were logged)\nclassified = join(tables: {a: matched, b: firstEvent}, on: [\"k\"])\n  |> map(fn: (r) => ({win: r.win, peak: r.peak, week: r.week, start: r.wreset - 18000.0,\n      who: if r.hit == 1 then \"defenestrator\" else if r.wreset - 18000.0 >= r.since then \"you\" else \"unknown\"}))\n\nclassified\n  |> filter(fn: (r) => r.who == \"you\")\n  |> map(fn: (r) => ({_time: time(v: int(v: r.start) * 1000000000), _value: \"You started a window, peak \" + string(v: int(v: r.peak)) + \"%\"}))\n"
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\" and r.provider == \"claude\" and r.kind == \"started\")\n  |> map(fn: (r) => ({_time: r._time, _value: \"\" + r._value}))"
+        },
+        "filter": {
+          "exclude": false,
+          "ids": [
+            5,
+            17,
+            18,
+            20
+          ]
+        }
+      },
+      {
+        "name": "Started elsewhere",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${datasource}"
+        },
+        "enable": true,
+        "iconColor": "purple",
+        "hide": false,
+        "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\" and r.provider == \"claude\" and r.kind == \"started-elsewhere\")\n  |> map(fn: (r) => ({_time: r._time, _value: \"\" + r._value}))",
+        "target": {
+          "refId": "Anno",
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\" and r.provider == \"claude\" and r.kind == \"started-elsewhere\")\n  |> map(fn: (r) => ({_time: r._time, _value: \"\" + r._value}))"
         },
         "filter": {
           "exclude": false,
@@ -653,11 +677,12 @@
           "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and r._field == \"capped\")\n  |> group()\n  |> map(fn: (r) => ({r with _value: if r._value then 1 else 0}))\n  |> rename(columns: {_value: \"capped\"})\n  |> keep(columns: [\"_time\", \"capped\"])"
         }
       ],
-      "id": 8
+      "id": 8,
+      "timeFrom": "${weeksince}"
     },
     {
       "type": "timeseries",
-      "title": "7-day utilization vs even pace",
+      "title": "7-day utilization vs even pace (previous and current window)",
       "description": "Weekly usage against a straight line from 0% at the last weekly reset to 100% at the next. The red band is where usage is above the line: you are burning faster than an even pace.",
       "datasource": {
         "type": "influxdb",
@@ -768,7 +793,8 @@
           "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u7\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u7 and exists r.reset7)\n  |> map(fn: (r) => {\n      left = (r.reset7 - float(v: int(v: r._time)) / 1000000000.0) / 604800.0\n      pace = if left > 1.0 then 0.0 else if left < 0.0 then 100.0 else 100.0 * (1.0 - left)\n      return {_time: r._time, \"7-day used\": r.u7, \"even pace\": pace, \"over pace\": if r.u7 > pace then r.u7 else pace}\n    })"
         }
       ],
-      "id": 9
+      "id": 9,
+      "timeFrom": "${weeksince}"
     },
     {
       "type": "stat",
@@ -993,16 +1019,6 @@
             },
             "properties": [
               {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [
-                    10,
-                    10
-                  ]
-                }
-              },
-              {
                 "id": "custom.fillOpacity",
                 "value": 0
               },
@@ -1050,12 +1066,13 @@
           "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5)\n  |> map(fn: (r) => ({_time: r._time, _value: (100.0 - r.u5) / ((r.reset5 - float(v: int(v: r._time)) / 1000000000.0) / 3600.0), left: (r.reset5 - float(v: int(v: r._time)) / 1000000000.0) / 3600.0}))\n  |> filter(fn: (r) => r.left > 1.0)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> aggregateWindow(every: 30m, fn: mean, createEmpty: false)\n  |> group()\n  |> rename(columns: {_value: \"safe rate\"})"
         }
       ],
-      "id": 13
+      "id": 13,
+      "timeFrom": "${weeksince}"
     },
     {
-      "type": "barchart",
-      "title": "Average utilization by hour of day (host local time)",
-      "description": "Mean 5-hour utilization at each local hour over the last 28 days (ignores the dashboard range): when you are usually working.",
+      "type": "trend",
+      "title": "Average 5-hour utilization by hour of day: weekdays vs weekends (host local time)",
+      "description": "Mean 5-hour utilization at each hour of the day over 28 days, weekdays (Mon-Fri) against weekends (Sat-Sun), in the dashboard time zone for America/Denver.",
       "datasource": {
         "type": "influxdb",
         "uid": "${datasource}"
@@ -1069,14 +1086,18 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "custom": {
-            "fillOpacity": 80
-          },
           "min": 0,
-          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "axisWidth": 64,
+            "axisLabel": "hour of day"
+          },
           "color": {
-            "mode": "fixed",
-            "fixedColor": "blue"
+            "mode": "palette-classic"
           }
         },
         "overrides": [
@@ -1089,6 +1110,44 @@
               {
                 "id": "unit",
                 "value": "none"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 23
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "weekdays"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "weekends"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
               }
             ]
           }
@@ -1101,15 +1160,21 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "import \"timezone\"\nimport \"date\"\n\noption location = timezone.location(name: \"America/Denver\")\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: -28d)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and r._field == \"u5\")\n  |> map(fn: (r) => ({r with hour: date.hour(t: r._time)}))\n  |> group(columns: [\"hour\"])\n  |> mean()\n  |> group()\n  |> sort(columns: [\"hour\"])\n  |> map(fn: (r) => ({hour: if r.hour < 10 then \"0\" + string(v: r.hour) else string(v: r.hour), \"mean 5-hour utilization\": r._value}))"
+          "query": "import \"timezone\"\nimport \"date\"\n\noption location = timezone.location(name: \"America/Denver\")\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: -28d)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and r._field == \"u5\")\n  |> map(fn: (r) => ({r with hour: date.hour(t: r._time), kind: if date.weekDay(t: r._time) == 0 or date.weekDay(t: r._time) == 6 then \"weekends\" else \"weekdays\"}))\n  |> group(columns: [\"hour\", \"kind\"])\n  |> mean()\n  |> group()\n  |> pivot(rowKey: [\"hour\"], columnKey: [\"kind\"], valueColumn: \"_value\")\n  |> sort(columns: [\"hour\"])\n  |> keep(columns: [\"hour\", \"weekdays\", \"weekends\"])"
         }
       ],
       "options": {
         "legend": {
-          "showLegend": false
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
         },
         "xField": "hour",
-        "xTickLabelRotation": 0
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
       },
       "id": 14
     },
@@ -1176,7 +1241,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 87
+        "y": 97
       },
       "fieldConfig": {
         "defaults": {
@@ -1491,7 +1556,7 @@
         "type": "influxdb",
         "uid": "${datasource}"
       },
-      "description": "One bar per 5-hour window, placed where it started, as tall as the highest 5-hour utilization reached in it (a bar at 100 ran out). Colour is what started the window: orange is the defenestrator, blue is your own first message, grey is from before events were logged (so unknown). The same colours mark the start on the 5-hour, model and project charts above. Lines up with the 7-day chart: see where each week's windows fall.",
+      "description": "One bar per 5-hour window, placed where it started, as tall as the highest 5-hour utilization reached in it (a bar at 100 ran out). Colour is what started the window: orange the defenestrator, blue your own first message (found in this host's session logs: the tool, session, project and model are in the line's hover text and the table below), purple a message that is not in this host's logs (another machine, the app or the web), grey from before events were logged. Hover a dashed line on this or the charts above for the details.",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -1553,6 +1618,21 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "started elsewhere"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "started before logging"
             },
             "properties": [
@@ -1586,7 +1666,130 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "import \"array\"\nimport \"date\"\nimport \"internal/debug\"\n\nwindows = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5 and exists r.reset7)\n  |> map(fn: (r) => ({r with win: int(v: r.reset5 / 600.0 + 0.5)}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"u5\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, win: r.win, peak: r.u5, wreset: r.reset5, week: int(v: r.reset7 / 43200.0 + 0.5)}))\n\npings = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r.provider == \"claude\" and r.kind == \"ping\" and r._field == \"reset\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, preset: r._value}))\n\nfirstEvent = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\")\n  |> group()\n  |> first()\n  |> map(fn: (r) => ({k: 1, since: float(v: int(v: r._time)) / 1000000000.0}))\n\nwithPings = union(tables: [pings, array.from(rows: [{k: 1, preset: 0.0}])])\n\nmatched = join(tables: {w: windows, p: withPings}, on: [\"k\"])\n  |> map(fn: (r) => ({k: r.k, win: r.win, peak: r.peak, wreset: r.wreset, week: r.week, hit: if r.preset > 0.0 and r.preset - r.wreset < 1800.0 and r.wreset - r.preset < 1800.0 then 1 else 0}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"hit\")\n  |> group()\n\n// who started each window: defenestrator (a ping's reset matches this window's), you (events were\n// being logged and no ping matches), or unknown (the window is from before events were logged)\nclassified = join(tables: {a: matched, b: firstEvent}, on: [\"k\"])\n  |> map(fn: (r) => ({win: r.win, peak: r.peak, week: r.week, start: r.wreset - 18000.0,\n      who: if r.hit == 1 then \"defenestrator\" else if r.wreset - 18000.0 >= r.since then \"you\" else \"unknown\"}))\n\nclassified\n  |> map(fn: (r) => ({_time: time(v: int(v: r.start) * 1000000000),\n      \"started by defenestrator\": if r.who == \"defenestrator\" then r.peak else debug.null(type: \"float\"),\n      \"started by you\": if r.who == \"you\" then r.peak else debug.null(type: \"float\"),\n      \"started before logging\": if r.who == \"unknown\" then r.peak else debug.null(type: \"float\")}))\n  |> sort(columns: [\"_time\"])\n"
+          "query": "import \"array\"\nimport \"date\"\nimport \"internal/debug\"\n\nwindows = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5 and exists r.reset7)\n  |> map(fn: (r) => ({r with win: int(v: r.reset5 / 600.0 + 0.5)}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"u5\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, win: r.win, peak: r.u5, wreset: r.reset5, week: int(v: r.reset7 / 43200.0 + 0.5)}))\n\nstarters = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r.provider == \"claude\" and (r.kind == \"ping\" or r.kind == \"started\" or r.kind == \"started-elsewhere\") and (r._field == \"reset\" or r._field == \"reason\"))\n  |> pivot(rowKey: [\"_time\", \"kind\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.reset)\n  |> group()\n  |> map(fn: (r) => ({k: 1, sreset: r.reset, skind: r.kind, detail: if exists r.reason then r.reason else \"\"}))\n\nwithStarters = union(tables: [starters, array.from(rows: [{k: 1, sreset: 0.0, skind: \"none\", detail: \"\"}])])\n\nmatched = join(tables: {w: windows, p: withStarters}, on: [\"k\"])\n  |> map(fn: (r) => ({k: r.k, win: r.win, peak: r.peak, wreset: r.wreset, week: r.week, hit: if r.sreset > 0.0 and r.sreset - r.wreset < 1800.0 and r.wreset - r.sreset < 1800.0 then 1 else 0, skind: r.skind, detail: r.detail}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"hit\")\n  |> group()\n\n// who started each window: defenestrator (a ping matches), you (a first message was found in the\n// session logs), elsewhere (no message in this host's logs), or unknown (not described)\nclassified = matched\n  |> map(fn: (r) => ({win: r.win, peak: r.peak, week: r.week, start: r.wreset - 18000.0, detail: r.detail,\n      who: if r.hit == 0 then \"unknown\" else if r.skind == \"ping\" then \"defenestrator\" else if r.skind == \"started\" then \"you\" else \"elsewhere\"}))\n\nclassified\n  |> map(fn: (r) => ({_time: time(v: int(v: r.start) * 1000000000),\n      \"started by defenestrator\": if r.who == \"defenestrator\" then r.peak else debug.null(type: \"float\"),\n      \"started by you\": if r.who == \"you\" then r.peak else debug.null(type: \"float\"),\n      \"started elsewhere\": if r.who == \"elsewhere\" then r.peak else debug.null(type: \"float\"),\n      \"started before logging\": if r.who == \"unknown\" then r.peak else debug.null(type: \"float\")}))\n  |> sort(columns: [\"_time\"])\n"
+        }
+      ],
+      "timeFrom": "${weeksince}"
+    },
+    {
+      "id": 21,
+      "type": "table",
+      "title": "What started each 5-hour window",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "description": "Every window in the range, newest first: who started it, the detail we can get (the tool, session, project, model and machine of the first message, from the session logs on the machine the defenestrator runs on; it cannot see other machines, claude.ai or API tokens, which show as 'elsewhere'), and how full it got.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 87
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "peak %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "started by"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"internal/debug\"\n\nwindows = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5 and exists r.reset7)\n  |> map(fn: (r) => ({r with win: int(v: r.reset5 / 600.0 + 0.5)}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"u5\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, win: r.win, peak: r.u5, wreset: r.reset5, week: int(v: r.reset7 / 43200.0 + 0.5)}))\n\nstarters = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r.provider == \"claude\" and (r.kind == \"ping\" or r.kind == \"started\" or r.kind == \"started-elsewhere\") and (r._field == \"reset\" or r._field == \"reason\"))\n  |> pivot(rowKey: [\"_time\", \"kind\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.reset)\n  |> group()\n  |> map(fn: (r) => ({k: 1, sreset: r.reset, skind: r.kind, detail: if exists r.reason then r.reason else \"\"}))\n\nwithStarters = union(tables: [starters, array.from(rows: [{k: 1, sreset: 0.0, skind: \"none\", detail: \"\"}])])\n\nmatched = join(tables: {w: windows, p: withStarters}, on: [\"k\"])\n  |> map(fn: (r) => ({k: r.k, win: r.win, peak: r.peak, wreset: r.wreset, week: r.week, hit: if r.sreset > 0.0 and r.sreset - r.wreset < 1800.0 and r.wreset - r.sreset < 1800.0 then 1 else 0, skind: r.skind, detail: r.detail}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"hit\")\n  |> group()\n\n// who started each window: defenestrator (a ping matches), you (a first message was found in the\n// session logs), elsewhere (no message in this host's logs), or unknown (not described)\nclassified = matched\n  |> map(fn: (r) => ({win: r.win, peak: r.peak, week: r.week, start: r.wreset - 18000.0, detail: r.detail,\n      who: if r.hit == 0 then \"unknown\" else if r.skind == \"ping\" then \"defenestrator\" else if r.skind == \"started\" then \"you\" else \"elsewhere\"}))\n\nclassified\n  |> map(fn: (r) => ({_time: time(v: int(v: r.start) * 1000000000), \"started by\": if r.who == \"unknown\" then \"unknown (before logging)\" else r.who,\n      detail: if r.who == \"defenestrator\" then (if r.detail == \"\" then \"defenestrator primer ping\" else r.detail) else r.detail, \"peak %\": r.peak}))\n  |> sort(columns: [\"_time\"], desc: true)\n"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "_time": "Time"
+            },
+            "indexByName": {
+              "_time": 0,
+              "started by": 1,
+              "detail": 2,
+              "peak %": 3
+            }
+          }
         }
       ]
     }
@@ -1602,6 +1805,22 @@
         "current": {},
         "options": [],
         "refresh": 1
+      },
+      {
+        "name": "weeksince",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${datasource}"
+        },
+        "hide": 2,
+        "refresh": 2,
+        "query": "from(bucket: v.defaultBucket)\n  |> range(start: -5d)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and r._field == \"reset7\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({_value: string(v: int(v: (float(v: int(v: now())) / 1000000000.0 - (r._value - 1209600.0)) / 3600.0) + 2) + \"h\"}))",
+        "definition": "from(bucket: v.defaultBucket)\n  |> range(start: -5d)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and r._field == \"reset7\")\n  |> group()\n  |> last()\n  |> map(fn: (r) => ({_value: string(v: int(v: (float(v: int(v: now())) / 1000000000.0 - (r._value - 1209600.0)) / 3600.0) + 2) + \"h\"}))",
+        "sort": 0,
+        "current": {},
+        "options": [],
+        "regex": ""
       }
     ]
   },

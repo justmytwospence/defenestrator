@@ -122,4 +122,15 @@ edits: Grafana's database can briefly lock while it reloads provisioned dashboar
 
 ## What started a window
 
-A dashed vertical line on the 5-hour, model, project and fullness charts marks every window start: orange when the defenestrator started it, blue when your own first message did. The defenestrator's pings are matched to windows by the reset time each ping recorded, so a window it was about to start but you beat it to is blue. Windows from before events were logged show as unknown on the fullness chart and have no line.
+Every window start gets a dashed vertical line on the 5-hour, model, project and fullness charts, and each one carries what we can actually know:
+
+- **Orange: the defenestrator.** Its ping and why it chose that moment.
+- **Blue: you.** The first message of the window found in the session logs on the machine the defenestrator runs on: the tool (pi or Claude Code), the session id, the project, the model and the machine. That is the finest level the logs give; they do not record which login or token sent a message.
+- **Purple: elsewhere.** No message in this machine's logs: another machine, the Claude app or claude.ai started it. (An API token would not start a subscription window at all.)
+- **Grey (on the fullness chart): unknown.** The window is from before events were logged.
+
+The "What started each 5-hour window" table lists the same, newest first, with how full each window got. After upgrading, `defenestrator backfill` describes the windows from your history. Before the first logged event, windows the old primer started cannot be told apart from yours and stay unknown.
+
+## Time ranges
+
+The 7-day charts (7-day utilization, how full each window got, fill rate, capped) start at the beginning of the previous 7-day window, so they always show the previous window and the current one, and their length changes as the week goes on. Grafana cannot extend a time axis into the future from data, so the 5-hour chart ends at now.

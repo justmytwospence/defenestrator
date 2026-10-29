@@ -212,24 +212,25 @@ def model_family(model):
     return next((k for k in PRICES if k in m), m or "unknown")
 
 
-def scan_logs(home=HOME, since=0):
-    """Yield (epoch, api-equivalent $, capped, model family, project) for each assistant
-    message in pi (provider anthropic) and Claude Code logs, minus the primer's own pings.
-    `since` skips older files and messages."""
+def scan_messages(home=HOME, since=0):
+    """Yield a dict for each assistant message in pi (provider anthropic) and Claude Code logs:
+    t, cost (API-equivalent $), capped, model, project, tool, session, via. `since` skips
+    older files and messages. The primer's own pings (run in /tmp) are not included."""
     from glob import glob
     seen = set()
-    files = [(f, os.path.basename(os.path.dirname(f))) for f in glob(os.path.join(home, ".pi/agent/sessions/*/*.jsonl"))]
+    files = [(f, os.path.basename(os.path.dirname(f)), "pi") for f in glob(os.path.join(home, ".pi/agent/sessions/*/*.jsonl"))]
     root = os.path.join(home, ".claude/projects")
     for f in glob(os.path.join(root, "**/*.jsonl"), recursive=True):
         if "-tmp-tmp" not in f:
-            files.append((f, os.path.relpath(f, root).split(os.sep)[0]))
-    for path, proj in files:
+            files.append((f, os.path.relpath(f, root).split(os.sep)[0], "Claude Code"))
+    for path, proj, tool in files:
         try:
             if os.path.getmtime(path) < since:
                 continue
         except OSError:
             continue
         project = project_name(proj)
+        session = os.path.splitext(os.path.basename(path))[0].split("_")[-1][:8]
         with open(path, errors="ignore") as fh:
             for line in fh:
                 if '"assistant"' not in line:
@@ -242,15 +243,18 @@ def scan_logs(home=HOME, since=0):
                 ts = iso_epoch(o.get("timestamp")) if isinstance(o.get("timestamp"), str) else None
                 if ts is None or ts < since:
                     continue
+                base = {"t": ts, "project": project, "tool": tool, "session": session,
+                        "via": o.get("entrypoint") or ""}
                 if o.get("type") == "message" and m.get("role") == "assistant" and m.get("provider") == "anthropic":  # pi
                     if "rate_limit_error" in (m.get("errorMessage") or ""):
-                        yield ts, 0.0, True, model_family(m.get("model")), project
+                        yield {**base, "cost": 0.0, "capped": True, "model": model_family(m.get("model"))}
                     else:
                         cost = ((m.get("usage") or {}).get("cost") or {}).get("total") or 0.0
-                        yield ts, cost, False, model_family(m.get("model")), project
+                        yield {**base, "cost": cost, "capped": False, "model": model_family(m.get("model"))}
                 elif o.get("type") == "assistant":  # Claude Code
                     if o.get("isApiErrorMessage"):
-                        yield ts, 0.0, "limit" in json.dumps(m.get("content")).lower(), model_family(m.get("model")), project
+                        yield {**base, "cost": 0.0, "capped": "limit" in json.dumps(m.get("content")).lower(),
+                               "model": model_family(m.get("model"))}
                     elif (m.get("id"), o.get("requestId")) not in seen:
                         seen.add((m.get("id"), o.get("requestId")))
                         u, model = m.get("usage") or {}, (m.get("model") or "").lower()
@@ -258,7 +262,31 @@ def scan_logs(home=HOME, since=0):
                         cost = (u.get("input_tokens", 0) * p[0] + u.get("output_tokens", 0) * p[1]
                                 + u.get("cache_creation_input_tokens", 0) * p[2]
                                 + u.get("cache_read_input_tokens", 0) * p[3]) / 1e6
-                        yield ts, cost, False, model_family(model), project
+                        yield {**base, "cost": cost, "capped": False, "model": model_family(model)}
+
+
+def scan_logs(home=HOME, since=0):
+    """Yield (epoch, api-equivalent $, capped, model family, project) per assistant message."""
+    for m in scan_messages(home, since):
+        yield m["t"], m["cost"], m["capped"], m["model"], m["project"]
+
+
+def first_message(start, end, home=HOME):
+    """The earliest assistant message in [start, end] from this machine's logs, or None: what
+    started a window the defenestrator did not."""
+    best = None
+    for m in scan_messages(home, since=start - 3600):
+        if start <= m["t"] <= end and (best is None or m["t"] < best["t"]):
+            best = m
+    return best
+
+
+def describe_starter(m, host):
+    """One line on what sent the first message of a window."""
+    if not m:
+        return None
+    via = f" ({m['via']})" if m.get("via") and m["via"] not in ("cli", "") else ""
+    return f"{m['tool']}{via} session {m['session']} in {m['project']}, {m['model']}, on {host}"
 
 
 def log_costs(home=HOME):

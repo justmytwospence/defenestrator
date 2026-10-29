@@ -53,6 +53,7 @@ def generate(now=None, days=14, seed=7, host="demo", provider="claude", scale=1.
     the demand (a lighter second provider); only Claude gets the model/project breakdown."""
     now = int(now or time.time())
     rnd = random.Random(seed)
+    who = random.Random(seed + 1)  # what started each window, apart from the demand stream
     start = (now - days * 86400) // BIN * BIN
     usage, events, use = [], [], []
     reset5 = None  # end of the running 5-hour window
@@ -82,6 +83,14 @@ def generate(now=None, days=14, seed=7, host="demo", provider="claude", scale=1.
             ev(t, provider, "ping", "ping at expiry: expected blocked 3% vs 11% if later", reset5)
         elif reset5 is None and demand > 0:
             reset5 = t + plan.WINDOW  # your own first message starts it
+            if provider == "claude":
+                if who.random() < 0.25:
+                    ev(t, provider, "started-elsewhere",
+                       f"Not in {host}'s session logs: another machine, the app or the web started this window", reset5)
+                else:
+                    tool = who.choice(["pi", "Claude Code"])
+                    ev(t, provider, "started", f"You started this window: {tool} session {who.getrandbits(32):08x} in "
+                       f"{_pick(who, PROJECTS)}, {_pick(who, MODELS)}, on {host}", reset5)
         if reset5 is not None and not announced:
             ev(t, provider, "window-running", f"window runs until {plan.fmt(reset5)}", reset5)
             announced = True

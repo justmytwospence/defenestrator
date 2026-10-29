@@ -302,3 +302,38 @@ class WeeklyDemoTests(unittest.TestCase):
         usage, events = demo.generate_weekly(1_800_000_000, days=28)
         self.assertTrue(all("u5=" not in u and "reset7=" in u and "provider=codex" in u for u in usage))
         self.assertTrue(any("kind=ping" in e and "weekly window ended" in e for e in events))
+
+
+class StarterTests(unittest.TestCase):
+    def home(self, ts, project="-home-u-Projects-blog"):
+        home = tempfile.mkdtemp()
+        d = os.path.join(home, ".pi/agent/sessions", project)
+        os.makedirs(d)
+        iso = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(ts))
+        path = os.path.join(d, "2026-10-29T08-00-00-000Z_0123456789abcdef.jsonl")
+        with open(path, "w") as f:
+            f.write(json.dumps({"type": "message", "timestamp": iso, "message": {"role": "assistant", "provider": "anthropic",
+                                "model": "claude-opus-5", "usage": {"cost": {"total": 0.1}}}}) + "\n")
+        os.utime(path, (ts, ts))
+        return home
+
+    def test_first_message_names_tool_session_project_and_model(self):
+        reset = 1_800_018_000
+        home = self.home(reset - 18000 + 120)
+        m = plan.first_message(reset - 18000, reset - 18000 + 3900, home)
+        self.assertEqual(plan.describe_starter(m, "NUC"), "pi session 01234567 in blog, opus, on NUC")
+
+    def test_no_message_means_elsewhere_and_a_ping_means_nothing_to_add(self):
+        from defenestrator import run
+        reset = 1_800_018_000
+        empty = tempfile.mkdtemp()
+        old, plan.HOME = plan.HOME, empty
+        try:
+            import unittest.mock as mock
+            with mock.patch.object(plan, "first_message", lambda s, e, home=None: None):
+                e = run.starter_event(reset, [], "NUC", reset + 600)
+                self.assertEqual(e["kind"], "started-elsewhere")
+                self.assertIsNone(run.starter_event(reset, [reset + 30], "NUC", reset + 600))
+                self.assertIsNone(run.starter_event(reset, [], "NUC", reset + 600, floor_t=reset))
+        finally:
+            plan.HOME = old
