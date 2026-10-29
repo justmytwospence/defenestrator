@@ -222,6 +222,7 @@ class InfluxTests(unittest.TestCase):
             fake.write_usage.return_value = None
             fake.write_events.return_value = None
             fake.write_use.return_value = None
+            fake.write_values.return_value = None
             with unittest.mock.patch.object(plan, "use_by_bin", return_value={}):
                 n, e, err = run.backfill(fake, d)
             self.assertEqual((n, e, err), (1, 1, None))
@@ -351,3 +352,24 @@ class StarterTests(unittest.TestCase):
                 self.assertIsNone(run.starter_event(reset, [], "NUC", reset + 600, floor_t=reset))
         finally:
             plan.HOME = old
+
+
+class PingValueTests(unittest.TestCase):
+    def test_a_ping_before_a_heavy_day_is_scored_a_day_later(self):
+        # 2 hours idle, then 6 hours of 6% per bin: without the ping your first message opens
+        # the window and it runs out; a ping 2 hours earlier resets it mid-way.
+        t0, samples, u, reset = 1_800_000_000, [], 0.0, None
+        for i in range(24 * 6 + 1):
+            t = t0 + i * plan.BIN
+            busy = 12 <= i < 48
+            if reset and t >= reset:
+                u, reset = 0.0, None
+            if busy and reset is None:
+                reset = t + plan.WINDOW
+            if busy:
+                u = min(100.0, u + 6)
+            samples.append({"t": t, "u5": u, "reset5": reset, "capped": u >= 100})
+        self.assertIsNone(plan.ping_value(samples, [], t0, t0 + 3600))
+        v = plan.ping_value(samples, [], t0, t0 + 2 * 86400)
+        self.assertEqual(set(v), {"t", "with_min", "without_min"})
+        self.assertGreaterEqual(v["without_min"], v["with_min"])

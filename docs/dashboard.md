@@ -108,7 +108,9 @@ Weekly-first, for the window Codex plans actually have (default range 30 days):
 | Usage per day | percentage points of the weekly window used each day |
 | Hours capped per day | time rate limited |
 | How full each 5-hour window got | one bar per window, as tall as its peak utilization, coloured by what started it: orange the defenestrator, blue you, grey unknown (before events were logged). Shares the 7-day chart's time axis |
-| 5-hour windows per 7-day window, by how full they got | windows per week (8 weeks), stacked by peak: full (90%+), mostly, partial, barely used (the ceiling is about 33 a week) |
+| 5-hour windows per 7-day window, coloured by how full each got | a heatmap: one column per week, one cell per window in it (first at the bottom), on a continuous colour scale from barely used to ran out; a taller column is more windows (the ceiling is about 33) |
+| How full windows got: started by the defenestrator vs not | overlaid step histograms of peak utilization, as a share of each group: windows the defenestrator started, the window right after each of those (it carries the rest of that stretch of work), and all others |
+| What each ping saved | a day after each ping, the following 24 hours of real demand replayed with and without it: estimated minutes capped each way, totalled in the legend |
 | Decision log | Codex decisions (plus sampler errors) |
 | 5-hour window (collapsed row) | for plans that have a 5-hour window: utilization against pace and windows started per day |
 
@@ -134,3 +136,11 @@ The "What started each 5-hour window" table lists the same, newest first, with h
 ## Time ranges
 
 The 7-day charts (7-day utilization, how full each window got, fill rate, capped) start at the beginning of the previous 7-day window, so they always show the previous window and the current one, and their length changes as the week goes on. Grafana cannot extend a time axis into the future from data, so the 5-hour chart ends at now.
+
+## Is it worth it?
+
+Two charts answer this from different sides.
+
+**What each ping saved** is the direct estimate. A day after each ping the defenestrator takes the demand actually seen over the next 24 hours (capped time filled in at your usual working rate) and replays it twice through the same window simulation the planner uses: once with the ping, once without it, where your own first message opens the window. The difference is the time capped the ping saved. It assumes you would have worked the same way, so read it as an estimate, and sum it over weeks rather than trusting one bar.
+
+**How full windows got** shows the mechanism. A ping splits a stretch of work across two windows: the defenestrator's window takes the start and ends part-full, and the window right after it takes the rest. If pings help, that following window runs out less often than other windows do, so compare its step at 100 with the others'. The groups are not a controlled experiment: the defenestrator pings on days it expects heavy use.

@@ -12,7 +12,7 @@ import random
 import time
 
 from . import plan
-from .influx import event_line, usage_line, use_line
+from .influx import event_line, usage_line, use_line, value_line
 
 PROJECTS = [("api-gateway", 0.30), ("web-app", 0.24), ("data-pipeline", 0.18), ("infra", 0.12),
             ("docs-site", 0.08), ("experiments", 0.08)]
@@ -56,6 +56,7 @@ def generate(now=None, days=14, seed=7, host="demo", provider="claude", scale=1.
     who = random.Random(seed + 1)  # what started each window, apart from the demand stream
     start = (now - days * 86400) // BIN * BIN
     usage, events, use = [], [], []
+    samples, pings = [], []
     reset5 = None  # end of the running 5-hour window
     used5 = 0.0
     used7 = 0.0
@@ -81,6 +82,7 @@ def generate(now=None, days=14, seed=7, host="demo", provider="claude", scale=1.
         if reset5 is None and weekday and 7 <= lt.tm_hour < 18 and (lt.tm_hour, lt.tm_min // 10) >= (7, 4):
             reset5 = t + plan.WINDOW
             ev(t, provider, "ping", "ping at expiry: expected blocked 3% vs 11% if later", reset5)
+            pings.append(t)
         elif reset5 is None and demand > 0:
             reset5 = t + plan.WINDOW  # your own first message starts it
             if provider == "claude":
@@ -108,12 +110,18 @@ def generate(now=None, days=14, seed=7, host="demo", provider="claude", scale=1.
         if reset5 is not None:
             sample["reset5"] = float(reset5)
         usage.append(usage_line(sample, host, provider))
+        samples.append(sample)
         if not weekday and reset5 is None and lt.tm_hour == 8 and lt.tm_min < 10:
             ev(t, provider, "no-ping", "no ping helps (expected blocked 2% either way)")
         if not erred and t > now - 9 * 86400 and lt.tm_hour == 3:
             ev(t, "sampler", "error", "no usage sample: access token expired (refreshed on next claude use)")
             erred = True
         t += BIN
+    if provider == "claude":
+        for p in pings:
+            v = plan.ping_value(samples, [], p, now)
+            if v:
+                use.append(value_line(v, host, provider))
     return usage, events, use
 
 

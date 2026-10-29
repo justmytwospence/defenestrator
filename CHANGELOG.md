@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.7.0]
+What the defenestrator is worth: a day after each ping it replays the following 24 hours with and without the ping and records the estimated time capped each way (`value.jsonl`, `defenestrator_value`), charted per ping. New overlaid histograms of how full windows got (started by the defenestrator, the window right after one, others). The windows-per-week chart is a heatmap on a continuous colour scale. The 7-day charts label days by weekday.
+
 ## [0.6.1]
 Fix: on a weekly-only Codex plan the defenestrator treated a weekly window at 0% used as not started and pinged every tick (0.5.0 to 0.6.0). A window is running whenever its reset is ahead, and no provider is pinged twice within an hour.
 

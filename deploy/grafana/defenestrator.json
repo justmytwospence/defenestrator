@@ -659,7 +659,20 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byType",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "time:ddd M/D"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "showValue": "never",
@@ -778,6 +791,18 @@
                   "mode": "fixed",
                   "fixedColor": "red"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byType",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "time:ddd M/D"
               }
             ]
           }
@@ -1045,6 +1070,18 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byType",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "time:ddd M/D"
+              }
+            ]
           }
         ]
       },
@@ -1078,10 +1115,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 12,
         "x": 0,
-        "y": 79
+        "y": 88
       },
       "fieldConfig": {
         "defaults": {
@@ -1241,7 +1278,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 97
+        "y": 107
       },
       "fieldConfig": {
         "defaults": {
@@ -1437,105 +1474,79 @@
     },
     {
       "id": 19,
-      "type": "barchart",
-      "title": "5-hour windows per 7-day window, by how full they got",
-      "description": "How many 5-hour windows ran in each 7-day window (last 8 weeks), split by the highest utilization each reached: full (90%+, it ran out or nearly), mostly, partial, or barely used (under 10%, e.g. a window started only to keep the clock going). More windows and more of them full is the goal. The current week is still filling and the oldest may be cut off.",
+      "type": "heatmap",
+      "title": "5-hour windows per 7-day window, coloured by how full each got",
       "datasource": {
         "type": "influxdb",
         "uid": "${datasource}"
       },
       "timeFrom": "8w",
+      "description": "One column per 7-day window (by the day it started), one cell per 5-hour window in it, from the first (bottom) to the last, coloured by the highest utilization it reached: pale is barely used, dark red ran out. A taller column is more windows; the ceiling is about 33.",
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 12,
         "x": 12,
-        "y": 79
+        "y": 88
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "min": 0,
-          "color": {
-            "mode": "palette-classic"
-          },
+          "unit": "percent",
           "custom": {
-            "fillOpacity": 85
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "full (90%+)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "dark-green"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "mostly (50-90%)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "green"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "partial (10-50%)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "yellow"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "barely used (<10%)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "gray"
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom"
+        "calculate": false,
+        "cellGap": 2,
+        "cellValues": {
+          "unit": "percent",
+          "decimals": 0
         },
-        "xField": "label",
-        "xTickLabelRotation": 0,
-        "stacking": "normal",
-        "showValue": "never"
+        "color": {
+          "mode": "scheme",
+          "scheme": "YlOrRd",
+          "fill": "dark-orange",
+          "scale": "linear",
+          "exponent": 0.5,
+          "steps": 64,
+          "reverse": true,
+          "min": 0,
+          "max": 100
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": -1
+        },
+        "legend": {
+          "show": true
+        },
+        "rowsFrame": {
+          "layout": "auto",
+          "value": "peak"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "single",
+          "yHistogram": false,
+          "showColorScale": true
+        },
+        "yAxis": {
+          "axisPlacement": "left",
+          "axisLabel": "window # in the week",
+          "reverse": false,
+          "decimals": 0
+        }
       },
       "targets": [
         {
@@ -1544,7 +1555,7 @@
             "type": "influxdb",
             "uid": "${datasource}"
           },
-          "query": "import \"array\"\nimport \"date\"\nimport \"internal/debug\"\n\nwindows = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5 and exists r.reset7)\n  |> map(fn: (r) => ({r with win: int(v: r.reset5 / 600.0 + 0.5)}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"u5\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, win: r.win, peak: r.u5, wreset: r.reset5, week: int(v: r.reset7 / 43200.0 + 0.5)}))\n\npings = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r.provider == \"claude\" and r.kind == \"ping\" and r._field == \"reset\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, preset: r._value}))\n\nfirstEvent = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r._field == \"reason\")\n  |> group()\n  |> first()\n  |> map(fn: (r) => ({k: 1, since: float(v: int(v: r._time)) / 1000000000.0}))\n\nwithPings = union(tables: [pings, array.from(rows: [{k: 1, preset: 0.0}])])\n\nmatched = join(tables: {w: windows, p: withPings}, on: [\"k\"])\n  |> map(fn: (r) => ({k: r.k, win: r.win, peak: r.peak, wreset: r.wreset, week: r.week, hit: if r.preset > 0.0 and r.preset - r.wreset < 1800.0 and r.wreset - r.preset < 1800.0 then 1 else 0}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"hit\")\n  |> group()\n\n// who started each window: defenestrator (a ping's reset matches this window's), you (events were\n// being logged and no ping matches), or unknown (the window is from before events were logged)\nclassified = join(tables: {a: matched, b: firstEvent}, on: [\"k\"])\n  |> map(fn: (r) => ({win: r.win, peak: r.peak, week: r.week, start: r.wreset - 18000.0,\n      who: if r.hit == 1 then \"defenestrator\" else if r.wreset - 18000.0 >= r.since then \"you\" else \"unknown\"}))\n\nclassified\n  |> map(fn: (r) => {\n      end = time(v: r.week * 43200 * 1000000000)\n      day = date.truncate(t: end, unit: 1d)\n      names = [\"Sun\", \"Mon\", \"Tue\", \"Wed\", \"Thu\", \"Fri\", \"Sat\"]\n      return {week: r.week, label: \"ends \" + names[date.weekDay(t: day)] + \" \" + string(v: date.month(t: day)) + \"/\" + string(v: date.monthDay(t: day)),\n        full: if r.peak >= 90.0 then 1 else 0, mostly: if r.peak >= 50.0 and r.peak < 90.0 then 1 else 0,\n        partial: if r.peak >= 10.0 and r.peak < 50.0 then 1 else 0, barely: if r.peak < 10.0 then 1 else 0}\n    })\n  |> group(columns: [\"week\", \"label\"])\n  |> reduce(identity: {full: 0, mostly: 0, partial: 0, barely: 0}, fn: (r, accumulator) => ({full: accumulator.full + r.full, mostly: accumulator.mostly + r.mostly, partial: accumulator.partial + r.partial, barely: accumulator.barely + r.barely}))\n  |> group()\n  |> sort(columns: [\"week\"])\n  |> rename(columns: {full: \"full (90%+)\", mostly: \"mostly (50-90%)\", partial: \"partial (10-50%)\", barely: \"barely used (<10%)\"})\n  |> keep(columns: [\"label\", \"full (90%+)\", \"mostly (50-90%)\", \"partial (10-50%)\", \"barely used (<10%)\"])\n"
+          "query": "import \"array\"\nimport \"date\"\nimport \"internal/debug\"\n\nwindows = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5 and exists r.reset7)\n  |> map(fn: (r) => ({r with win: int(v: r.reset5 / 600.0 + 0.5)}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"u5\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, win: r.win, peak: r.u5, wreset: r.reset5, week: int(v: r.reset7 / 43200.0 + 0.5)}))\n\nstarters = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r.provider == \"claude\" and (r.kind == \"ping\" or r.kind == \"started\" or r.kind == \"started-elsewhere\") and (r._field == \"reset\" or r._field == \"reason\"))\n  |> pivot(rowKey: [\"_time\", \"kind\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.reset)\n  |> group()\n  |> map(fn: (r) => ({k: 1, sreset: r.reset, skind: r.kind, detail: if exists r.reason then r.reason else \"\"}))\n\nwithStarters = union(tables: [starters, array.from(rows: [{k: 1, sreset: 0.0, skind: \"none\", detail: \"\"}])])\n\nmatched = join(tables: {w: windows, p: withStarters}, on: [\"k\"])\n  |> map(fn: (r) => ({k: r.k, win: r.win, peak: r.peak, wreset: r.wreset, week: r.week, hit: if r.sreset > 0.0 and r.sreset - r.wreset < 1800.0 and r.wreset - r.sreset < 1800.0 then 1 else 0, skind: r.skind, detail: r.detail}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"hit\")\n  |> group()\n\n// who started each window: defenestrator (a ping matches), you (a first message was found in the\n// session logs), elsewhere (no message in this host's logs), or unknown (not described)\nclassified = matched\n  |> map(fn: (r) => ({win: r.win, peak: r.peak, week: r.week, start: r.wreset - 18000.0, detail: r.detail,\n      who: if r.hit == 0 then \"unknown\" else if r.skind == \"ping\" then \"defenestrator\" else if r.skind == \"started\" then \"you\" else \"elsewhere\"}))\n\nclassified\n  |> group(columns: [\"week\"])\n  |> sort(columns: [\"start\"])\n  |> map(fn: (r) => ({r with n: 1}))\n  |> cumulativeSum(columns: [\"n\"])\n  |> map(fn: (r) => ({_time: time(v: (r.week * 43200 - 604800) * 1000000000), slot: (if r.n < 10 then \"0\" else \"\") + string(v: r.n), peak: r.peak}))\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"slot\"], valueColumn: \"peak\")\n  |> sort(columns: [\"_time\"])\n"
         }
       ]
     },
@@ -1644,6 +1655,18 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byType",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "time:ddd M/D"
+              }
+            ]
           }
         ]
       },
@@ -1684,7 +1707,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 87
+        "y": 97
       },
       "fieldConfig": {
         "defaults": {
@@ -1790,6 +1813,227 @@
               "peak %": 3
             }
           }
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "trend",
+      "title": "How full windows got: started by the defenestrator vs not",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "timeFrom": "8w",
+      "description": "Share of windows in each group by the highest 5-hour utilization they reached (last 8 weeks; the group sizes are in the legend). The last step (100) is windows that ran out. The defenestrator's windows start before you work and are meant to end part-full; the window right after one carries the rest of that stretch of work, so it is the one that should run out less often than other windows.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 79
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "axisWidth": 64,
+            "axisLabel": "share of the group's windows"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bucket"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 110
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "peak 5-hour utilization, % (the step from 100 is windows that ran out)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "started by defenestrator.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "right after.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "other windows.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "xField": "bucket",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "import \"array\"\nimport \"date\"\nimport \"internal/debug\"\n\nwindows = from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.u5 and exists r.reset5 and exists r.reset7)\n  |> map(fn: (r) => ({r with win: int(v: r.reset5 / 600.0 + 0.5)}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"u5\")\n  |> group()\n  |> map(fn: (r) => ({k: 1, win: r.win, peak: r.u5, wreset: r.reset5, week: int(v: r.reset7 / 43200.0 + 0.5)}))\n\nstarters = from(bucket: v.defaultBucket)\n  |> range(start: -1y)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_event\" and r.provider == \"claude\" and (r.kind == \"ping\" or r.kind == \"started\" or r.kind == \"started-elsewhere\") and (r._field == \"reset\" or r._field == \"reason\"))\n  |> pivot(rowKey: [\"_time\", \"kind\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.reset)\n  |> group()\n  |> map(fn: (r) => ({k: 1, sreset: r.reset, skind: r.kind, detail: if exists r.reason then r.reason else \"\"}))\n\nwithStarters = union(tables: [starters, array.from(rows: [{k: 1, sreset: 0.0, skind: \"none\", detail: \"\"}])])\n\nmatched = join(tables: {w: windows, p: withStarters}, on: [\"k\"])\n  |> map(fn: (r) => ({k: r.k, win: r.win, peak: r.peak, wreset: r.wreset, week: r.week, hit: if r.sreset > 0.0 and r.sreset - r.wreset < 1800.0 and r.wreset - r.sreset < 1800.0 then 1 else 0, skind: r.skind, detail: r.detail}))\n  |> group(columns: [\"win\"])\n  |> max(column: \"hit\")\n  |> group()\n\n// who started each window: defenestrator (a ping matches), you (a first message was found in the\n// session logs), elsewhere (no message in this host's logs), or unknown (not described)\nclassified = matched\n  |> map(fn: (r) => ({win: r.win, peak: r.peak, week: r.week, start: r.wreset - 18000.0, detail: r.detail,\n      who: if r.hit == 0 then \"unknown\" else if r.skind == \"ping\" then \"defenestrator\" else if r.skind == \"started\" then \"you\" else \"elsewhere\"}))\n\nafterPing = join(tables: {w: windows, p: starters |> filter(fn: (r) => r.skind == \"ping\")}, on: [\"k\"])\n  |> map(fn: (r) => ({win: r.win, sreset: r.sreset, gap: (r.wreset - 18000.0) - r.sreset}))\n  |> filter(fn: (r) => r.gap > -600.0 and r.gap < 43200.0)\n  |> group(columns: [\"sreset\"])\n  |> min(column: \"gap\")\n  |> group()\n  |> map(fn: (r) => ({win: r.win, after: 1}))\n\ngrouped = join(tables: {c: classified, a: union(tables: [afterPing, classified |> map(fn: (r) => ({win: r.win, after: 0}))]) |> group(columns: [\"win\"]) |> max(column: \"after\") |> group()}, on: [\"win\"])\n  |> map(fn: (r) => ({r with grp: if r.who == \"defenestrator\" then \"started by defenestrator\" else if r.after == 1 then \"right after a defenestrator window\" else \"other windows\"}))\n\ncounted = grouped\n  |> map(fn: (r) => ({grp: r.grp, bucket: if r.peak >= 99.5 then 100 else if r.peak >= 90.0 then 90 else int(v: r.peak / 10.0) * 10, n: 1}))\n\ntotals = counted |> group(columns: [\"grp\"]) |> sum(column: \"n\") |> group() |> map(fn: (r) => ({grp: r.grp, total: r.n}))\n\nzeros = array.from(rows: [\n  {grp: \"started by defenestrator\", bucket: 0}, {grp: \"started by defenestrator\", bucket: 10}, {grp: \"started by defenestrator\", bucket: 20}, {grp: \"started by defenestrator\", bucket: 30}, {grp: \"started by defenestrator\", bucket: 40}, {grp: \"started by defenestrator\", bucket: 50}, {grp: \"started by defenestrator\", bucket: 60}, {grp: \"started by defenestrator\", bucket: 70}, {grp: \"started by defenestrator\", bucket: 80}, {grp: \"started by defenestrator\", bucket: 90}, {grp: \"started by defenestrator\", bucket: 100},\n  {grp: \"right after a defenestrator window\", bucket: 0}, {grp: \"right after a defenestrator window\", bucket: 10}, {grp: \"right after a defenestrator window\", bucket: 20}, {grp: \"right after a defenestrator window\", bucket: 30}, {grp: \"right after a defenestrator window\", bucket: 40}, {grp: \"right after a defenestrator window\", bucket: 50}, {grp: \"right after a defenestrator window\", bucket: 60}, {grp: \"right after a defenestrator window\", bucket: 70}, {grp: \"right after a defenestrator window\", bucket: 80}, {grp: \"right after a defenestrator window\", bucket: 90}, {grp: \"right after a defenestrator window\", bucket: 100},\n  {grp: \"other windows\", bucket: 0}, {grp: \"other windows\", bucket: 10}, {grp: \"other windows\", bucket: 20}, {grp: \"other windows\", bucket: 30}, {grp: \"other windows\", bucket: 40}, {grp: \"other windows\", bucket: 50}, {grp: \"other windows\", bucket: 60}, {grp: \"other windows\", bucket: 70}, {grp: \"other windows\", bucket: 80}, {grp: \"other windows\", bucket: 90}, {grp: \"other windows\", bucket: 100}])\n  |> map(fn: (r) => ({r with n: 0}))\n\nsummed = union(tables: [counted, zeros])\n  |> group(columns: [\"grp\", \"bucket\"])\n  |> sum(column: \"n\")\n  |> group()\n\nshares = join(tables: {a: summed, b: totals}, on: [\"grp\"])\n  |> map(fn: (r) => ({grp: r.grp + \" (\" + string(v: r.total) + \")\", bucket: r.bucket, share: 100.0 * float(v: r.n) / float(v: r.total)}))\n\nunion(tables: [shares, shares |> filter(fn: (r) => r.bucket == 100) |> map(fn: (r) => ({grp: r.grp, bucket: 110, share: r.share}))])\n  |> pivot(rowKey: [\"bucket\"], columnKey: [\"grp\"], valueColumn: \"share\")\n  |> sort(columns: [\"bucket\"])\n"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "barchart",
+      "title": "What each ping saved: estimated time capped in the next 24 hours",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "timeFrom": "8w",
+      "description": "A day after each ping, the defenestrator replays the 24 hours that followed it (the demand actually seen, with capped time filled in at your usual rate) twice: with the ping, and without it, where your own first message would have started the window. The gap is the estimated time capped the ping saved; the legend totals it. An estimate: it assumes you would have worked the same way.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 79
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: min",
+          "min": 0,
+          "decimals": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "axisLabel": "minutes capped"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "without the ping (estimated)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "with the ping"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "xField": "ping",
+        "xTickLabelRotation": -45,
+        "showValue": "never",
+        "groupWidth": 0.75,
+        "barWidth": 0.95
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "import \"timezone\"\nimport \"date\"\n\noption location = timezone.location(name: \"America/Denver\")\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_value\" and r.provider == \"claude\" and (r._field == \"with_min\" or r._field == \"without_min\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> map(fn: (r) => {\n      names = [\"Sun\", \"Mon\", \"Tue\", \"Wed\", \"Thu\", \"Fri\", \"Sat\"]\n      return {ping: names[date.weekDay(t: r._time)] + \" \" + string(v: date.month(t: r._time)) + \"/\" + string(v: date.monthDay(t: r._time)) + \" \" + string(v: date.hour(t: r._time)) + \":\" + (if date.minute(t: r._time) < 10 then \"0\" else \"\") + string(v: date.minute(t: r._time)),\n        \"without the ping (estimated)\": r.without_min, \"with the ping\": r.with_min}\n    })"
         }
       ]
     }

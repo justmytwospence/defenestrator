@@ -458,6 +458,23 @@ def simulate(demand, ping):
     return blocked, peak, windows
 
 
+def ping_value(samples, history, ping_t, now, tz=None):
+    """What one ping was worth, a day later: the day that followed it (the demand actually
+    observed, capped time imputed) replayed with the ping and without it, where your own
+    first message would have started the window. Returns {t, with_min, without_min} in
+    estimated minutes capped over the 24 hours from the ping, or None before 24 hours."""
+    if ping_t + HORIZON * BIN > now:
+        return None
+    prof = Profile(samples, now, tz, history)
+    if prof.start is None or not prof.active_rate:
+        return None
+    b0 = int(ping_t // BIN * BIN)
+    series = [prof.timeline.get(b0 + i * BIN, 0.0) for i in range(HORIZON)]
+    to_min = BIN / 60 / prof.active_rate  # blocked % of a window -> minutes at the usual active rate
+    return {"t": int(ping_t), "with_min": round(simulate(series, 0)[0] * to_min, 1),
+            "without_min": round(simulate(series, None)[0] * to_min, 1)}
+
+
 def plan(profile, now):
     """Best ping bin from now (None = let your own use start it) and its scores.
 

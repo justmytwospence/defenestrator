@@ -227,6 +227,10 @@ class Runner:
         self.sample(now)
         self.write_use(now)
         self.seed_once(now)
+        try:
+            self.score_pings(now)
+        except Exception as e:  # best effort
+            self.log(f"value: scoring pings failed ({type(e).__name__})")
         if self.in_quiet_hours(now):
             self.log(f"quiet hours ({self.cfg.quiet_hours}), skipping")
             self.event(now, "all", "quiet-hours", f"quiet hours {self.cfg.quiet_hours}: no pings")
@@ -274,6 +278,32 @@ class Runner:
                 e = starter_event(r, pings, host, now)
                 if e:
                     self.event(e["t"], "claude", e["kind"], e["reason"], e["reset"], force=True)
+
+    def score_pings(self, now):
+        """A day after each Claude ping, estimate what it saved (plan.ping_value) and record it
+        in value.jsonl and InfluxDB (defenestrator_value)."""
+        path = self._path("value.jsonl")
+        done = {v["t"] for v in plan.load_samples(path)}
+        todo = [e for e in self.read_events() if e.get("kind") == "ping" and e.get("provider") == "claude"
+                and int(e["t"]) not in done and e["t"] + plan.HORIZON * plan.BIN <= now]
+        if not todo:
+            return
+        samples = plan.load_samples()
+        history = plan.load_history(samples[0]["t"] if samples else now)
+        out = []
+        for e in todo:
+            v = plan.ping_value(samples, history, e["t"], now)
+            if v:
+                out.append(v)
+                self.log(f"claude: ping at {fmt_day(e['t'])} saved an estimated "
+                         f"{v['without_min'] - v['with_min']:.0f} min capped ({v['without_min']:.0f} without, {v['with_min']:.0f} with)")
+        with open(path, "a") as f:
+            for v in out:
+                f.write(json.dumps(v, separators=(",", ":")) + "\n")
+        if self.influx and out:
+            err = self.influx.write_values(out)
+            if err:
+                self.log(f"value: {err}")
 
     def read_events(self):
         out = []
@@ -513,7 +543,8 @@ def backfill(influx, state):
                 e = None
             if e:
                 events.append(e)
-    err = (influx.write_usage(usage, "claude") or influx.write_usage(codex_usage, "codex")
+    values = plan.load_samples(os.path.join(state, "value.jsonl"))
+    err = (influx.write_values(values) or influx.write_usage(usage, "claude") or influx.write_usage(codex_usage, "codex")
            or influx.write_events(events)
            or influx.write_use(plan.use_by_bin(since=since), plan.PCT_PER_DOLLAR))
     return len(usage) + len(codex_usage), len(events), err

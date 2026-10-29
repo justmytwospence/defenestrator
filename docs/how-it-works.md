@@ -37,7 +37,8 @@ Every 10 minutes (or earlier, at the exact moment a window is due to reset) it d
      weekly profile from. A running window is left alone.
    - **A 5-hour window as well**: the same planner as Claude runs on Codex's own samples and
      history, seeded from its session logs.
-5. **Record.** Every decision goes to `events.jsonl` (and InfluxDB) with a reason. A state that
+5. **Score.** A day after each Claude ping it estimates what the ping saved (the next 24 hours of observed demand replayed with and without it) and records it in `value.jsonl` and `defenestrator_value`.
+6. **Record.** Every decision goes to `events.jsonl` (and InfluxDB) with a reason. A state that
    repeats, such as "window running", is recorded when it changes, not every pass.
 
 Between passes it sleeps until the earliest of: 10 minutes, a window's reset plus two minutes,
@@ -103,6 +104,7 @@ The files in `DEFENESTRATOR_STATE` are the source of truth; InfluxDB is a copy f
 |---|---|---|
 | `defenestrator_usage` | `host`, `provider` (`claude`, `codex`) | `u5`, `u7` (percent), `reset5`, `reset7` (epoch seconds), `capped`. A weekly-only plan has no `u5`/`reset5` |
 | `defenestrator_event` | `host`, `provider`, `kind` | `reason` (string), `reset` |
+| `defenestrator_value` | `host`, `provider` | `with_min`, `without_min`, `saved_min`: estimated minutes capped in the 24 hours after a ping, with it and without it |
 | `defenestrator_use` | `host`, `model`, `project` | `cost` (API-equivalent $), `pct` (estimated % of the 5-hour budget), one point per 10 minutes |
 
 Event kinds: `ping`, `would-ping` (dry run), `wait`, `no-ping`, `window-running`, `quiet-hours`,

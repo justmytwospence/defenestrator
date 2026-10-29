@@ -40,6 +40,12 @@ def event_line(event, host):
             f"kind={_esc_tag(event['kind'])} {','.join(fields)} {int(event['t'])}")
 
 
+def value_line(v, host, provider="claude"):
+    return (f"defenestrator_value,host={_esc_tag(host)},provider={_esc_tag(provider)} "
+            f"with_min={float(v['with_min'])!r},without_min={float(v['without_min'])!r},"
+            f"saved_min={float(v['without_min']) - float(v['with_min'])!r} {int(v['t'])}")
+
+
 def use_line(t, model, project, cost, pct_per_dollar, host):
     return (f"defenestrator_use,host={_esc_tag(host)},model={_esc_tag(model)},project={_esc_tag(project)} "
             f"cost={float(cost)!r},pct={float(cost) * pct_per_dollar!r} {int(t)}")
@@ -81,6 +87,9 @@ class Influx:
     def write_use(self, use, pct_per_dollar):
         """use: {(hour, model, project): cost}."""
         return self.write(use_line(h, m, p, c, pct_per_dollar, self.host) for (h, m, p), c in use.items())
+
+    def write_values(self, values, provider="claude"):
+        return self.write([value_line(v, self.host, provider) for v in values])
 
     def write_events(self, events):
         return self.write(event_line(e, self.host) for e in events)
