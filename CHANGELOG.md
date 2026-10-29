@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.6.1]
+Fix: on a weekly-only Codex plan the defenestrator treated a weekly window at 0% used as not started and pinged every tick (0.5.0 to 0.6.0). A window is running whenever its reset is ahead, and no provider is pinged twice within an hour.
+
 ## [0.6.0]
 Window starts say what started them: new `started` and `started-elsewhere` events carry the tool, session, project, model and machine of the first message (from the session logs), orange/blue/purple lines mark every start, and a table lists them. `backfill` describes past windows (run it once after upgrading).
 The 7-day charts start at the beginning of the previous 7-day window. The hour-of-day chart overlays weekdays and weekends. The safe-rate line is solid.

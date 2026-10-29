@@ -21,6 +21,7 @@ FIVE_H = plan.WINDOW
 WEEK = 7 * 86400
 BUFFER = plan.BUFFER
 TICK = 600
+MIN_PING_GAP = 3600  # a safety net: no provider is pinged twice within this
 # Kinds that repeat every tick while nothing changes; recorded when they change, not every run.
 QUIET_KINDS = {"window-running", "quiet-hours", "skip", "error", "no-ping", "learning"}
 
@@ -379,6 +380,10 @@ class Runner:
             self.log(f"{provider}: {sub}: would ping ({d['reason']})")
             return self.event(now, provider, "would-ping", d["reason"], force=True)
         self._rm(f"{provider}.plan")
+        if now - self._num(f"{provider}.lastping") < MIN_PING_GAP:  # never ping in a loop
+            self.log(f"{provider}: {sub}: pinged less than an hour ago, not again")
+            return self.event(now, provider, "skip", "pinged less than an hour ago")
+        self._put(f"{provider}.lastping", int(now))
         reset = ping()
         if reset is None:
             reset = now + (fallback or FIVE_H)
@@ -422,8 +427,8 @@ class Runner:
         if not week:
             self.log(f"codex: {sub}: no window of a known length, skipping")
             return self.event(now, "codex", "skip", f"{sub}: no 5-hour or weekly window")
-        used, reset = week.get("usedPercent") or 0, week.get("resetsAt") or 0
-        if used != 0 and reset > now:
+        reset = week.get("resetsAt") or 0
+        if reset > now:  # its own reset is ahead: running, however little of it is used (0% is common)
             self._put("codex", reset)
             self._rm("codex.plan")
             self.log(f"codex: {sub}: weekly window runs until {fmt_day(reset)}")

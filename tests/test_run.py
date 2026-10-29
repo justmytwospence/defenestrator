@@ -136,6 +136,20 @@ class RunnerTests(Base):
         self.assertEqual([p["reset"] for p in pings], [self.NOW + 7 * 86400])
         self.assertEqual(int(open(os.path.join(self.state, "codex")).read()), self.NOW + 7 * 86400)
 
+    def test_codex_weekly_window_at_zero_percent_with_a_future_reset_is_running(self):
+        limits = {"planType": "prolite", "primary": {"usedPercent": 0, "windowDurationMins": 10080, "resetsAt": self.NOW + 5 * 86400}}
+        cli = FakeCli(codex=True, limits=limits)
+        self.runner(cli).run_once(self.NOW)
+        self.assertEqual(cli.codex_pings, 0)
+
+    def test_a_provider_is_never_pinged_twice_within_an_hour(self):
+        ended = {"planType": "prolite", "primary": {"usedPercent": 0, "windowDurationMins": 10080, "resetsAt": 5}}
+        cli = FakeCli(codex=True, limits=ended)
+        r = self.runner(cli)
+        r.run_once(self.NOW)
+        r.run_once(self.NOW + 600)
+        self.assertEqual(cli.codex_pings, 1)
+
     def test_codex_weekly_only_plan_dry_run_and_quiet_hours_do_not_ping(self):
         ended = {"planType": "prolite", "primary": {"usedPercent": 0, "windowDurationMins": 10080, "resetsAt": 5}}
         cli = FakeCli(codex=True, limits=ended)
