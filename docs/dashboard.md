@@ -107,6 +107,7 @@ Weekly-first, for the window Codex plans actually have (default range 30 days):
 | Weekly fill rate vs safe rate | percentage points per day against `(100 - used) / days left`, the steady rate that lands on exactly 100% at the reset |
 | Usage per day | percentage points of the weekly window used each day |
 | Hours capped per day | time rate limited |
+| 5-hour windows per 7-day window | how many distinct 5-hour windows ran in each week, last 8 weeks (the current week is still filling; the ceiling is about 33) |
 | Decision log | Codex decisions (plus sampler errors) |
 | 5-hour window (collapsed row) | for plans that have a 5-hour window: utilization against pace and windows started per day |
 

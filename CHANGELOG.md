@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.5.1]
+New Claude panel: 5-hour windows per 7-day window (last 8 weeks).
+
 ## [0.5.0]
 Codex gets what it actually has: a weekly-first board of its own (`defenestrator-codex.json`,
 linked from the Claude board, which no longer shows the provider switch or any Codex data) and a

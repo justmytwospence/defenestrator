@@ -1144,7 +1144,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 51
+        "y": 59
       },
       "fieldConfig": {
         "defaults": {
@@ -1337,6 +1337,56 @@
         }
       ],
       "timeFrom": "2d"
+    },
+    {
+      "id": 19,
+      "type": "barchart",
+      "title": "5-hour windows per 7-day window",
+      "description": "How many distinct 5-hour windows ran inside each 7-day window (labelled by when the week ends), however they started: a ping or your own use. The current week is still filling, and the oldest may be cut off by the time range (set to 8 weeks). The ceiling is about 33 (168 hours / 5); the defenestrator is how you get closer to it.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${datasource}"
+      },
+      "timeFrom": "8w",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 51
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "custom": {
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "xField": "label",
+        "xTickLabelRotation": 0,
+        "showValue": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${datasource}"
+          },
+          "query": "import \"timezone\"\nimport \"date\"\n\noption location = timezone.location(name: \"America/Denver\")\n\nfrom(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"defenestrator_usage\" and r.provider == \"claude\" and (r._field == \"u5\" or r._field == \"reset5\" or r._field == \"reset7\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.reset5 and exists r.reset7 and exists r.u5)\n  |> map(fn: (r) => ({r with week: int(v: r.reset7 / 43200.0 + 0.5), win: int(v: r.reset5 / 600.0 + 0.5)}))\n  |> group(columns: [\"week\", \"win\"])\n  |> max(column: \"u5\")\n  |> group(columns: [\"week\"])\n  |> count(column: \"win\")\n  |> map(fn: (r) => {\n      end = time(v: r.week * 43200 * 1000000000)\n      day = date.truncate(t: end, unit: 1d)\n      names = [\"Sun\", \"Mon\", \"Tue\", \"Wed\", \"Thu\", \"Fri\", \"Sat\"]\n      return {week: r.week, \"5-hour windows\": r.win, label: \"ends \" + names[date.weekDay(t: day)] + \" \" + string(v: date.month(t: day)) + \"/\" + string(v: date.monthDay(t: day))}\n    })\n  |> group()\n  |> sort(columns: [\"week\"])\n  |> keep(columns: [\"label\", \"5-hour windows\"])"
+        }
+      ]
     }
   ],
   "templating": {
