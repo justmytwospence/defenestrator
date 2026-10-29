@@ -33,6 +33,10 @@ cp .env.example .env        # set the three secrets, TZ, HOST_UID/HOST_GID
 docker compose up -d --build
 ```
 
+Tagged releases are published as `ghcr.io/justmytwospence/defenestrator:<version>` (linux/amd64
+and arm64, user id 1000). To use the image instead of building, replace `build:` with `image:`
+in `compose.yaml`; if your user id is not 1000, build it yourself so the mounted logins stay writable.
+
 The container mounts `~/.claude` and `~/.codex` read-write, so it uses the
 logins you already have and the CLIs can refresh their tokens. To use a separate login instead,
 point `CLAUDE_DIR` and `CODEX_DIR` at empty folders and run
