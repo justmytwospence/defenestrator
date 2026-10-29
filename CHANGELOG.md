@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.5.3]
+What started each 5-hour window is now visible: orange (defenestrator) and blue (you) lines mark every window start on the 5-hour, model and project charts. New chart "How full each 5-hour window got" (one bar per window, peak utilization, coloured by starter), and the per-week window chart is split by how full the windows were.
+
 ## [0.5.2]
 Both boards are laid out so charts that share an x axis are stacked full-width with matching plot areas: the 2-day charts together, the 7-day time charts together, the per-day bars together (Claude, Codex weekly and per-day charts too).
 

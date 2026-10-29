@@ -107,7 +107,8 @@ Weekly-first, for the window Codex plans actually have (default range 30 days):
 | Weekly fill rate vs safe rate | percentage points per day against `(100 - used) / days left`, the steady rate that lands on exactly 100% at the reset |
 | Usage per day | percentage points of the weekly window used each day |
 | Hours capped per day | time rate limited |
-| 5-hour windows per 7-day window | how many distinct 5-hour windows ran in each week, last 8 weeks (the current week is still filling; the ceiling is about 33) |
+| How full each 5-hour window got | one bar per window, as tall as its peak utilization, coloured by what started it: orange the defenestrator, blue you, grey unknown (before events were logged). Shares the 7-day chart's time axis |
+| 5-hour windows per 7-day window, by how full they got | windows per week (8 weeks), stacked by peak: full (90%+), mostly, partial, barely used (the ceiling is about 33 a week) |
 | Decision log | Codex decisions (plus sampler errors) |
 | 5-hour window (collapsed row) | for plans that have a 5-hour window: utilization against pace and windows started per day |
 
@@ -118,3 +119,7 @@ The usage-by-model/project panels are Claude only: Codex's logs are not priced.
 The file is provisioned read-only (`allowUiUpdates: false`) so it stays in sync with the repo. To
 change it, edit the JSON (or save a copy from the UI) and re-provision. Wait a few seconds between
 edits: Grafana's database can briefly lock while it reloads provisioned dashboards.
+
+## What started a window
+
+A dashed vertical line on the 5-hour, model, project and fullness charts marks every window start: orange when the defenestrator started it, blue when your own first message did. The defenestrator's pings are matched to windows by the reset time each ping recorded, so a window it was about to start but you beat it to is blue. Windows from before events were logged show as unknown on the fullness chart and have no line.
