@@ -311,7 +311,7 @@
       },
       "gridPos": {
         "h": 9,
-        "w": 12,
+        "w": 24,
         "x": 0,
         "y": 10
       },
@@ -325,7 +325,7 @@
             "thresholdsStyle": {
               "mode": "line"
             },
-            "axisWidth": 60
+            "axisWidth": 64
           },
           "min": 0,
           "max": 100,
@@ -450,16 +450,17 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 6,
+        "w": 24,
         "x": 0,
-        "y": 35
+        "y": 53
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "custom": {
-            "fillOpacity": 80
+            "fillOpacity": 80,
+            "axisWidth": 64
           },
           "decimals": 0,
           "min": 0,
@@ -498,16 +499,17 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 35
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 59
       },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "custom": {
-            "fillOpacity": 80
+            "fillOpacity": 80,
+            "axisWidth": 64
           },
           "min": 0,
           "max": 100,
@@ -562,10 +564,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 43
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 49
       },
       "fieldConfig": {
         "defaults": {
@@ -636,9 +638,9 @@
       },
       "gridPos": {
         "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 10
+        "w": 24,
+        "x": 0,
+        "y": 33
       },
       "fieldConfig": {
         "defaults": {
@@ -646,7 +648,8 @@
           "custom": {
             "fillOpacity": 20,
             "lineWidth": 1,
-            "spanNulls": 3900000
+            "spanNulls": 3900000,
+            "axisWidth": 64
           },
           "min": 0,
           "max": 100,
@@ -936,10 +939,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 7,
+        "w": 24,
         "x": 0,
-        "y": 27
+        "y": 42
       },
       "fieldConfig": {
         "defaults": {
@@ -947,7 +950,8 @@
           "custom": {
             "fillOpacity": 20,
             "lineWidth": 1,
-            "spanNulls": 3900000
+            "spanNulls": 3900000,
+            "axisWidth": 64
           },
           "min": 0,
           "color": {
@@ -1032,8 +1036,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 27
+        "x": 0,
+        "y": 71
       },
       "fieldConfig": {
         "defaults": {
@@ -1091,17 +1095,18 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 6,
+        "w": 24,
         "x": 0,
-        "y": 43
+        "y": 65
       },
       "fieldConfig": {
         "defaults": {
           "unit": "suffix: h",
           "custom": {
             "fillOpacity": 80,
-            "axisSoftMax": 1
+            "axisSoftMax": 1,
+            "axisWidth": 64
           },
           "min": 0,
           "decimals": 1,
@@ -1144,7 +1149,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 59
+        "y": 79
       },
       "fieldConfig": {
         "defaults": {
@@ -1244,8 +1249,8 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 7,
+        "w": 24,
         "x": 0,
         "y": 19
       },
@@ -1261,7 +1266,7 @@
               "group": "A"
             },
             "spanNulls": false,
-            "axisWidth": 60
+            "axisWidth": 64
           }
         },
         "overrides": []
@@ -1296,10 +1301,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 19
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 26
       },
       "fieldConfig": {
         "defaults": {
@@ -1313,7 +1318,7 @@
               "group": "A"
             },
             "spanNulls": false,
-            "axisWidth": 60
+            "axisWidth": 64
           }
         },
         "overrides": []
@@ -1350,9 +1355,9 @@
       "timeFrom": "8w",
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 51
+        "w": 12,
+        "x": 12,
+        "y": 71
       },
       "fieldConfig": {
         "defaults": {

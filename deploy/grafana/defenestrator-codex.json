@@ -334,8 +334,8 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 10,
-        "w": 16,
+        "h": 9,
+        "w": 24,
         "x": 0,
         "y": 5
       },
@@ -345,7 +345,8 @@
           "custom": {
             "fillOpacity": 20,
             "lineWidth": 1,
-            "spanNulls": 3900000
+            "spanNulls": 3900000,
+            "axisWidth": 64
           },
           "min": 0,
           "max": 100,
@@ -449,10 +450,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 10,
-        "w": 8,
-        "x": 16,
-        "y": 5
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 14
       },
       "fieldConfig": {
         "defaults": {
@@ -464,7 +465,8 @@
           "custom": {
             "fillOpacity": 20,
             "lineWidth": 1,
-            "spanNulls": 3900000
+            "spanNulls": 3900000,
+            "axisWidth": 64
           }
         },
         "overrides": [
@@ -551,10 +553,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
+        "h": 6,
+        "w": 24,
         "x": 0,
-        "y": 15
+        "y": 21
       },
       "fieldConfig": {
         "defaults": {
@@ -565,7 +567,8 @@
             "fixedColor": "blue"
           },
           "custom": {
-            "fillOpacity": 80
+            "fillOpacity": 80,
+            "axisWidth": 64
           }
         },
         "overrides": []
@@ -598,17 +601,18 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 15
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 27
       },
       "fieldConfig": {
         "defaults": {
           "unit": "suffix: h",
           "custom": {
             "fillOpacity": 80,
-            "axisSoftMax": 1
+            "axisSoftMax": 1,
+            "axisWidth": 64
           },
           "min": 0,
           "decimals": 1,
@@ -651,7 +655,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 33
       },
       "fieldConfig": {
         "defaults": {
@@ -750,7 +754,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 25
+        "y": 43
       },
       "panels": [
         {

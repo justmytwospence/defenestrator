@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.5.2]
+Both boards are laid out so charts that share an x axis are stacked full-width with matching plot areas: the 2-day charts together, the 7-day time charts together, the per-day bars together (Claude, Codex weekly and per-day charts too).
+
 ## [0.5.1]
 New Claude panel: 5-hour windows per 7-day window (last 8 weeks).
 
