@@ -105,7 +105,7 @@
   },
   "panels": [
     {
-      "type": "stat",
+      "type": "gauge",
       "title": "5-hour window used",
       "description": "Account-wide (every device) 5-hour utilization at the last sample.",
       "datasource": {
@@ -147,15 +147,18 @@
         "overrides": []
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "sizing": "auto"
       },
       "targets": [
         {
@@ -170,7 +173,7 @@
       "id": 1
     },
     {
-      "type": "stat",
+      "type": "gauge",
       "title": "7-day window used",
       "description": "Account-wide weekly utilization at the last sample. Defenestrator does not change weekly caps.",
       "datasource": {
@@ -212,15 +215,18 @@
         "overrides": []
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "sizing": "auto"
       },
       "targets": [
         {
@@ -877,7 +883,7 @@
       "id": 10
     },
     {
-      "type": "stat",
+      "type": "gauge",
       "title": "5-hour: projected at reset",
       "description": "Where this window ends up if usage continues at its rate over the last 90 minutes of the same window. 100 or more means you will hit the cap before it resets. Without a running window it shows the last value.",
       "datasource": {
@@ -915,20 +921,24 @@
           },
           "min": 0,
           "decimals": 0,
-          "noValue": "no window"
+          "noValue": "no window",
+          "max": 150
         },
         "overrides": []
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "sizing": "auto"
       },
       "targets": [
         {
@@ -943,7 +953,7 @@
       "id": 11
     },
     {
-      "type": "stat",
+      "type": "gauge",
       "title": "7-day: projected at reset",
       "description": "Where the week ends up if usage continues at its rate over the last 48 hours of this week (since the last weekly reset). 100 or more means you are on course to hit the weekly cap.",
       "datasource": {
@@ -981,20 +991,24 @@
           },
           "min": 0,
           "decimals": 0,
-          "noValue": "n/a"
+          "noValue": "n/a",
+          "max": 150
         },
         "overrides": []
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "sizing": "auto"
       },
       "targets": [
         {

@@ -77,7 +77,7 @@
   },
   "panels": [
     {
-      "type": "stat",
+      "type": "gauge",
       "title": "Weekly window used",
       "description": "Account-wide weekly utilization at the last sample. Defenestrator does not change weekly caps.",
       "datasource": {
@@ -119,15 +119,18 @@
         "overrides": []
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "sizing": "auto"
       },
       "targets": [
         {
@@ -197,7 +200,7 @@
       "id": 2
     },
     {
-      "type": "stat",
+      "type": "gauge",
       "title": "Weekly: projected at reset",
       "description": "Where this week ends up at the rate of the last 72 hours of it. 100 or more: you are on course to hit the weekly cap.",
       "datasource": {
@@ -235,20 +238,24 @@
           },
           "min": 0,
           "decimals": 0,
-          "noValue": "n/a"
+          "noValue": "n/a",
+          "max": 150
         },
         "overrides": []
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "sizing": "auto"
       },
       "targets": [
         {

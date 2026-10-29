@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.7.3]
+Window starters name the session: pi's session name, else the start of the first prompt (Claude Code). Utilization and projection numbers are gauges.
+
 ## [0.7.2]
 The windows-per-week chart is a stacked bar per week: each 5-hour window is a segment as tall as the share of it used, coloured to match, so a bar's height is full windows' worth used.
 

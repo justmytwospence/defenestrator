@@ -232,37 +232,69 @@ def scan_messages(home=HOME, since=0):
         project = project_name(proj)
         session = os.path.splitext(os.path.basename(path))[0].split("_")[-1][:8]
         with open(path, errors="ignore") as fh:
-            for line in fh:
-                if '"assistant"' not in line:
-                    continue
-                try:
-                    o = json.loads(line)
-                except ValueError:
-                    continue
+            lines = fh.readlines()
+        name = session_name(lines)
+        if name:
+            session = name
+        for line in lines:
+            if '"assistant"' not in line:
+                continue
+            try:
+                o = json.loads(line)
+            except ValueError:
+                continue
+            m = o.get("message") or {}
+            ts = iso_epoch(o.get("timestamp")) if isinstance(o.get("timestamp"), str) else None
+            if ts is None or ts < since:
+                continue
+            base = {"t": ts, "project": project, "tool": tool, "session": session,
+                    "via": o.get("entrypoint") or ""}
+            if o.get("type") == "message" and m.get("role") == "assistant" and m.get("provider") == "anthropic":  # pi
+                if "rate_limit_error" in (m.get("errorMessage") or ""):
+                    yield {**base, "cost": 0.0, "capped": True, "model": model_family(m.get("model"))}
+                else:
+                    cost = ((m.get("usage") or {}).get("cost") or {}).get("total") or 0.0
+                    yield {**base, "cost": cost, "capped": False, "model": model_family(m.get("model"))}
+            elif o.get("type") == "assistant":  # Claude Code
+                if o.get("isApiErrorMessage"):
+                    yield {**base, "cost": 0.0, "capped": "limit" in json.dumps(m.get("content")).lower(),
+                           "model": model_family(m.get("model"))}
+                elif (m.get("id"), o.get("requestId")) not in seen:
+                    seen.add((m.get("id"), o.get("requestId")))
+                    u, model = m.get("usage") or {}, (m.get("model") or "").lower()
+                    p = next((v for k, v in PRICES.items() if k in model), PRICES["opus"])
+                    cost = (u.get("input_tokens", 0) * p[0] + u.get("output_tokens", 0) * p[1]
+                            + u.get("cache_creation_input_tokens", 0) * p[2]
+                            + u.get("cache_read_input_tokens", 0) * p[3]) / 1e6
+                    yield {**base, "cost": cost, "capped": False, "model": model_family(model)}
+
+
+def session_name(lines):
+    """A readable name for a session: pi's session name (its last session_info entry), else the
+    start of the first thing you typed, else None (the caller keeps the id)."""
+    name = first = None
+    for line in lines:
+        if '"session_info"' in line or (first is None and '"user"' in line):
+            try:
+                o = json.loads(line)
+            except ValueError:
+                continue
+            if o.get("type") == "session_info" and o.get("name"):
+                name = o["name"]
+            elif first is None:
                 m = o.get("message") or {}
-                ts = iso_epoch(o.get("timestamp")) if isinstance(o.get("timestamp"), str) else None
-                if ts is None or ts < since:
-                    continue
-                base = {"t": ts, "project": project, "tool": tool, "session": session,
-                        "via": o.get("entrypoint") or ""}
-                if o.get("type") == "message" and m.get("role") == "assistant" and m.get("provider") == "anthropic":  # pi
-                    if "rate_limit_error" in (m.get("errorMessage") or ""):
-                        yield {**base, "cost": 0.0, "capped": True, "model": model_family(m.get("model"))}
-                    else:
-                        cost = ((m.get("usage") or {}).get("cost") or {}).get("total") or 0.0
-                        yield {**base, "cost": cost, "capped": False, "model": model_family(m.get("model"))}
-                elif o.get("type") == "assistant":  # Claude Code
-                    if o.get("isApiErrorMessage"):
-                        yield {**base, "cost": 0.0, "capped": "limit" in json.dumps(m.get("content")).lower(),
-                               "model": model_family(m.get("model"))}
-                    elif (m.get("id"), o.get("requestId")) not in seen:
-                        seen.add((m.get("id"), o.get("requestId")))
-                        u, model = m.get("usage") or {}, (m.get("model") or "").lower()
-                        p = next((v for k, v in PRICES.items() if k in model), PRICES["opus"])
-                        cost = (u.get("input_tokens", 0) * p[0] + u.get("output_tokens", 0) * p[1]
-                                + u.get("cache_creation_input_tokens", 0) * p[2]
-                                + u.get("cache_read_input_tokens", 0) * p[3]) / 1e6
-                        yield {**base, "cost": cost, "capped": False, "model": model_family(model)}
+                if m.get("role") == "user" and o.get("type") in ("message", "user"):
+                    c = m.get("content")
+                    text = c if isinstance(c, str) else " ".join(
+                        p.get("text", "") for p in c or [] if isinstance(p, dict) and p.get("type") == "text")
+                    text = " ".join(text.split())
+                    if text and not text.startswith("<"):
+                        first = text
+    n = name or first
+    if not n:
+        return None
+    n = n.replace('"', "'")
+    return '"' + (n if len(n) <= 60 else n[:59].rstrip() + "…") + '"'
 
 
 def scan_logs(home=HOME, since=0):
