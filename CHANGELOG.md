@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.7.1]
+Fix: pings logged in the first event format (no `kind`) are scored and counted when telling what started a window.
+
 ## [0.7.0]
 What the defenestrator is worth: a day after each ping it replays the following 24 hours with and without the ping and records the estimated time capped each way (`value.jsonl`, `defenestrator_value`), charted per ping. New overlaid histograms of how full windows got (started by the defenestrator, the window right after one, others). The windows-per-week chart is a heatmap on a continuous colour scale. The 7-day charts label days by weekday.
 

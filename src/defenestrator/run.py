@@ -311,9 +311,11 @@ class Runner:
             with open(self._path("events.jsonl")) as f:
                 for line in f:
                     try:
-                        out.append(json.loads(line))
+                        e = json.loads(line)
                     except ValueError:
-                        pass
+                        continue
+                    e.setdefault("kind", "ping")  # the first format logged pings only
+                    out.append(e)
         except OSError:
             pass
         return out
