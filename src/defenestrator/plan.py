@@ -160,7 +160,8 @@ def load_samples(path=None):
 def store(sample, now, path=None):
     path = path or SAMPLES
     samples = [s for s in load_samples(path) if s["t"] >= now - KEEP and s["t"] != sample["t"]]
-    if samples and sample["t"] - samples[-1]["t"] < 120 and sample["u5"] == samples[-1]["u5"]:
+    if samples and sample["t"] - samples[-1]["t"] < 120 and sample.get("u5") == samples[-1].get("u5") \
+            and sample.get("u7") == samples[-1].get("u7"):
         return False  # duplicate of a sample just taken
     samples.append(sample)
     samples.sort(key=lambda s: s["t"])

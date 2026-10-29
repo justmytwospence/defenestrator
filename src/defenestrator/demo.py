@@ -48,8 +48,9 @@ def _rate(t, rnd, focus):
     return max(0.0, rnd.gauss(base * focus, base * 0.55))
 
 
-def generate(now=None, days=14, seed=7, host="demo"):
-    """Return (usage lines, event lines, use lines) as InfluxDB line protocol."""
+def generate(now=None, days=14, seed=7, host="demo", provider="claude", scale=1.0):
+    """Return (usage lines, event lines, use lines) as InfluxDB line protocol. `scale` shrinks
+    the demand (a lighter second provider); only Claude gets the model/project breakdown."""
     now = int(now or time.time())
     rnd = random.Random(seed)
     start = (now - days * 86400) // BIN * BIN
@@ -63,8 +64,8 @@ def generate(now=None, days=14, seed=7, host="demo"):
     t = start
     erred = False
 
-    def ev(at, provider, kind, reason, reset=None):
-        events.append(event_line({"t": at, "provider": provider, "kind": kind, "reason": reason, "reset": reset}, host))
+    def ev(at, prov, kind, reason, reset=None):
+        events.append(event_line({"t": at, "provider": prov or provider, "kind": kind, "reason": reason, "reset": reset}, host))
 
     while t <= now:
         lt = time.localtime(t)
@@ -73,16 +74,16 @@ def generate(now=None, days=14, seed=7, host="demo"):
             used7, reset7 = 0.0, reset7 + WEEK
         if reset5 is not None and t >= reset5:
             reset5, used5, announced = None, 0.0, False
-        demand = _rate(t, rnd, focus)
+        demand = _rate(t, rnd, focus) * scale
         weekday = lt.tm_wday < 5
         # The defenestrator pings when a window has expired, on workdays, before 18:00.
         if reset5 is None and weekday and 7 <= lt.tm_hour < 18 and (lt.tm_hour, lt.tm_min // 10) >= (7, 4):
             reset5 = t + plan.WINDOW
-            ev(t, "claude", "ping", "ping at expiry: expected blocked 3% vs 11% if later", reset5)
+            ev(t, provider, "ping", "ping at expiry: expected blocked 3% vs 11% if later", reset5)
         elif reset5 is None and demand > 0:
             reset5 = t + plan.WINDOW  # your own first message starts it
         if reset5 is not None and not announced:
-            ev(t, "claude", "window-running", f"window runs until {plan.fmt(reset5)}", reset5)
+            ev(t, provider, "window-running", f"window runs until {plan.fmt(reset5)}", reset5)
             announced = True
         capped = used5 >= 100.0
         if reset5 is not None and demand > 0 and not capped:
@@ -91,15 +92,15 @@ def generate(now=None, days=14, seed=7, host="demo"):
             used7 += take * 0.07
             capped = used5 >= 100.0
             share = take / plan.PCT_PER_DOLLAR
-            for model, project in {(_pick(rnd, MODELS), _pick(rnd, PROJECTS)) for _ in range(2)}:
+            for model, project in () if provider != "claude" else {(_pick(rnd, MODELS), _pick(rnd, PROJECTS)) for _ in range(2)}:
                 use.append(use_line(t, model, project, share / 2, plan.PCT_PER_DOLLAR, host))
         sample = {"t": t, "u5": round(used5, 1), "u7": round(min(used7, 100.0), 1), "reset7": float(reset7),
                   "capped": capped and reset5 is not None}
         if reset5 is not None:
             sample["reset5"] = float(reset5)
-        usage.append(usage_line(sample, host))
+        usage.append(usage_line(sample, host, provider))
         if not weekday and reset5 is None and lt.tm_hour == 8 and lt.tm_min < 10:
-            ev(t, "claude", "no-ping", "no ping helps (expected blocked 2% either way)")
+            ev(t, provider, "no-ping", "no ping helps (expected blocked 2% either way)")
         if not erred and t > now - 9 * 86400 and lt.tm_hour == 3:
             ev(t, "sampler", "error", "no usage sample: access token expired (refreshed on next claude use)")
             erred = True
@@ -109,5 +110,6 @@ def generate(now=None, days=14, seed=7, host="demo"):
 
 def run(influx, now=None, days=14):
     usage, events, use = generate(now, days, host=influx.host)
-    err = influx.write(usage) or influx.write(events) or influx.write(use)
-    return len(usage), len(events), len(use), err
+    cu, ce, _ = generate(now, days, seed=11, host=influx.host, provider="codex", scale=0.55)
+    err = influx.write(usage + cu) or influx.write(events + ce) or influx.write(use)
+    return len(usage) + len(cu), len(events) + len(ce), len(use), err

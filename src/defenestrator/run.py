@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 import time
 
-from . import plan
+from . import codex, plan
 from .influx import Influx
 
 FIVE_H = plan.WINDOW
@@ -215,12 +215,34 @@ class Runner:
         s, src = plan.take_sample(now)
         self.log("claude: " + plan.describe_sample(s, src, now))
         if s:
-            if self.influx:
-                err = self.influx.write_usage([s])
-                if err:
-                    self.log(f"usage: {err}")
+            self.push_usage([s], "claude")
         else:
             self.event(now, "sampler", "error", f"no usage sample: {src}")
+        self.rl = None
+        if self.cfg.codex and self.cli.have("codex") and self.cli.codex_logged_in():
+            self.rl = self.cli.codex_limits()
+            cs = codex.sample_from_limits(self.rl, now) if self.rl else None
+            if cs:
+                plan.store(cs, now, self._path("usage.codex.jsonl"))
+                self.log("codex: " + self.describe_codex(cs, self.rl, now))
+                self.push_usage([cs], "codex")
+            else:
+                self.log("codex: no usage sample")
+                self.event(now, "codex", "error", "could not read rate limits")
+
+    def push_usage(self, samples, provider):
+        if self.influx:
+            err = self.influx.write_usage(samples, provider)
+            if err:
+                self.log(f"usage: {err}")
+
+    def describe_codex(self, s, rl, now):
+        parts = [f"plan {rl.get('planType') or 'unknown'}"]
+        if s.get("u5") is not None:
+            parts.append(f"5h {s['u5']:.0f}%")
+        if s.get("u7") is not None:
+            parts.append(f"7d {s['u7']:.0f}%")
+        return ", ".join(parts)
 
     def write_use(self, now, days=1):
         """Usage per 10 minutes by model and project from the session logs on this machine, for
@@ -235,7 +257,18 @@ class Runner:
         if err:
             self.log(f"use: {err}")
 
+    def seed_codex_once(self, now):
+        path = self._path("history.codex.jsonl")
+        if os.path.exists(path) or self.cfg.dry or not self.cfg.codex:
+            return
+        try:
+            if not codex.seed_history(now, path):
+                open(path, "w").close()  # nothing to learn from (weekly-only plan, or no logs): do not rescan
+        except Exception as e:
+            self.log(f"codex seed failed ({type(e).__name__})")
+
     def seed_once(self, now):
+        self.seed_codex_once(now)
         if os.path.exists(self._path("history.jsonl")) or self.cfg.dry:
             return
         if not self.cfg.seed_hosts and not plan.log_costs():
@@ -273,25 +306,28 @@ class Runner:
             self.log(f"claude: {sub}: window runs until {plan.fmt(self._num('claude'))}")
             return self.event(now, "claude", "window-running",
                               f"window runs until {plan.fmt(self._num('claude'))}", self._num("claude"))
+        self.act("claude", d, sub, lambda: self.cli.claude_ping(), now)
+
+    def act(self, provider, d, sub, ping, now):
+        """Carry out a wait/ping decision for a provider whose window is not running."""
         if d.get("action") == "wait":
             at = d.get("at")
             if at:
-                self._put("claude.plan", int(at))
+                self._put(f"{provider}.plan", int(at))
             else:
-                self._rm("claude.plan")
-            self.log(f"claude: {sub}: {d['reason']}")
-            kind = "no-ping" if not at else "wait"
-            return self.event(now, "claude", kind, d["reason"])
+                self._rm(f"{provider}.plan")
+            self.log(f"{provider}: {sub}: {d['reason']}")
+            return self.event(now, provider, "no-ping" if not at else "wait", d["reason"])
         if self.cfg.dry:
-            self.log(f"claude: {sub}: would ping ({d['reason']})")
-            return self.event(now, "claude", "would-ping", d["reason"], force=True)
-        self._rm("claude.plan")
-        reset = self.cli.claude_ping()
+            self.log(f"{provider}: {sub}: would ping ({d['reason']})")
+            return self.event(now, provider, "would-ping", d["reason"], force=True)
+        self._rm(f"{provider}.plan")
+        reset = ping()
         if reset is None:
             reset = now + FIVE_H
-        self._put("claude", reset)
-        self.log(f"claude: {sub}: pinged ({d['reason']}), window resets {plan.fmt(reset)}")
-        self.event(time.time(), "claude", "ping", d["reason"], reset, force=True)
+        self._put(provider, reset)
+        self.log(f"{provider}: {sub}: pinged ({d['reason']}), window resets {plan.fmt(reset)}")
+        self.event(time.time(), provider, "ping", d["reason"], reset, force=True)
 
     def prime_codex(self, now):
         if not self.cli.have("codex"):
@@ -299,45 +335,41 @@ class Runner:
         if not self.cli.codex_logged_in():
             self.log("codex: no ChatGPT login, skipping")
             return self.event(now, "codex", "skip", "no ChatGPT login")
-        if now < self._num("codex.nowindow"):
-            return
-        if not self.due("codex", now):
-            self.log(f"codex: window runs until {plan.fmt(self._num('codex'))}")
-            return self.event(now, "codex", "window-running",
-                              f"window runs until {plan.fmt(self._num('codex'))}", self._num("codex"))
-        rl = self.cli.codex_limits()
+        rl = self.rl
         if not rl:
-            self.log("codex: could not read rate limits")
-            return self.event(now, "codex", "error", "could not read rate limits")
+            return  # the sample step already recorded why
         sub = rl.get("planType") or "unknown"
-        win = window_300(rl)
-        if not win:
-            self._put("codex.nowindow", now + 6 * 3600)  # plans without a 5-hour window: recheck every 6 h
-            self.log(f"codex: {sub}: no 5-hour window, skipping")
-            return self.event(now, "codex", "skip", f"{sub}: no 5-hour window")
-        used, reset = win.get("usedPercent") or 0, win.get("resetsAt") or 0
+        five = codex.window(rl, codex.FIVE_H_MINS)
+        if not five:
+            self.log(f"codex: {sub}: no 5-hour window (weekly usage is sampled), nothing to start")
+            return self.event(now, "codex", "skip", f"{sub}: no 5-hour window, only the weekly one is sampled")
+        used = five.get("usedPercent") or 0
+        reset = five.get("resetsAt") or 0
         if used != 0 and reset > now:
             self._put("codex", reset)
-            self.log(f"codex: {sub}: window already running until {plan.fmt(reset)}")
+            self._rm("codex.plan")
+            self.log(f"codex: {sub}: window runs until {plan.fmt(reset)}")
             return self.event(now, "codex", "window-running", f"window runs until {plan.fmt(reset)}", reset)
-        if self.cfg.dry:
-            self.log(f"codex: {sub}: would ping")
-            return self.event(now, "codex", "would-ping", f"{sub}: no window running", force=True)
+        if reset and reset <= now:
+            self._put("codex", reset)
+        path = self._path("usage.codex.jsonl")
+        samples = plan.load_samples(path)
+        d = plan.decide(samples, now, None, plan.load_history(samples[0]["t"] if samples else now,
+                                                              self._path("history.codex.jsonl")))
+        self.act("codex", d, sub, self.codex_ping_reset, now)
+
+    def codex_ping_reset(self):
+        """Ping Codex and return the real 5-hour reset (epoch), or None."""
         if not self.cli.codex_ping():
-            self.log(f"codex: {sub}: ping failed")
-            return self.event(now, "codex", "error", f"{sub}: ping failed")
-        rl = self.cli.codex_limits() or {}
-        win = window_300(rl)
-        reset = (win or {}).get("resetsAt") or now + FIVE_H
-        self._put("codex", reset)
-        self.log(f"codex: {sub}: pinged, window resets {plan.fmt(reset)}")
-        self.event(time.time(), "codex", "ping", f"{sub}: no window running", reset, force=True)
+            return None
+        win = codex.window(self.cli.codex_limits() or {}, codex.FIVE_H_MINS) or {}
+        return win.get("resetsAt")
 
     # --- scheduling ---
     def next_wake(self, now):
         """Earliest known reset + BUFFER or planned ping, capped at one tick from now."""
         nxt = 0
-        for name in ("claude", "codex", "claude.plan"):
+        for name in ("claude", "codex", "claude.plan", "codex.plan"):
             r = self._num(name, None)
             if r is None:
                 continue
@@ -371,6 +403,7 @@ def health(state, max_age=1500):
 def backfill(influx, state):
     """Replay usage.jsonl and events.jsonl into InfluxDB (same timestamps, so repeatable)."""
     usage = plan.load_samples(os.path.join(state, "usage.jsonl"))
+    codex_usage = plan.load_samples(os.path.join(state, "usage.codex.jsonl"))
     events = []
     try:
         with open(os.path.join(state, "events.jsonl")) as f:
@@ -385,6 +418,7 @@ def backfill(influx, state):
     except OSError:
         pass
     since = int(time.time() - 28 * 86400) // 3600 * 3600
-    err = (influx.write_usage(usage) or influx.write_events(events)
+    err = (influx.write_usage(usage, "claude") or influx.write_usage(codex_usage, "codex")
+           or influx.write_events(events)
            or influx.write_use(plan.use_by_bin(since=since), plan.PCT_PER_DOLLAR))
-    return len(usage), len(events), err
+    return len(usage) + len(codex_usage), len(events), err

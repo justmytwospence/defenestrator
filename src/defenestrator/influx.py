@@ -3,7 +3,8 @@
 Two measurements, written with the sample's own timestamp (seconds), so replaying the same
 data overwrites the same points:
 
-  defenestrator_usage  u5, u7 (percent), reset5, reset7 (epoch s), capped (bool)
+  defenestrator_usage  tags host, provider (claude|codex); fields u5, u7 (percent), reset5, reset7
+                       (epoch s), capped (bool). A weekly-only plan has no u5/reset5.
   defenestrator_event  tags provider, kind; fields reason (string), reset (epoch s)
   defenestrator_use    tags model, project; fields cost (API-equivalent $), pct (estimated % of the
                        5-hour budget), one point per 10 minutes, from the session logs on this machine
@@ -22,13 +23,13 @@ def _esc_str(v):
     return '"' + str(v).replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ") + '"'
 
 
-def usage_line(sample, host):
+def usage_line(sample, host, provider="claude"):
     fields = []
     for k in ("u5", "u7", "reset5", "reset7"):
         if sample.get(k) is not None:
             fields.append(f"{k}={float(sample[k])!r}")
     fields.append(f"capped={'true' if sample.get('capped') else 'false'}")
-    return f"defenestrator_usage,host={_esc_tag(host)} {','.join(fields)} {int(sample['t'])}"
+    return f"defenestrator_usage,host={_esc_tag(host)},provider={_esc_tag(provider)} {','.join(fields)} {int(sample['t'])}"
 
 
 def event_line(event, host):
@@ -74,8 +75,8 @@ class Influx:
                 return f"influx write failed ({type(e).__name__}: {getattr(e, 'code', '')})"
         return None
 
-    def write_usage(self, samples):
-        return self.write(usage_line(s, self.host) for s in samples)
+    def write_usage(self, samples, provider="claude"):
+        return self.write(usage_line(s, self.host, provider) for s in samples)
 
     def write_use(self, use, pct_per_dollar):
         """use: {(hour, model, project): cost}."""

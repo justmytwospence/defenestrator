@@ -86,10 +86,11 @@ Everything is in `DEFENESTRATOR_STATE` (`./state` in the compose stack):
 
 | File | |
 |---|---|
-| `usage.jsonl` | account-wide samples, 8 weeks kept |
+| `usage.jsonl` | Claude account-wide samples, 8 weeks kept |
+| `usage.codex.jsonl` | Codex samples (same shape; no `u5` on a weekly-only plan) |
 | `events.jsonl` | every decision (append-only) |
-| `history.jsonl` | seeded history from before sampling began; delete it to reseed |
-| `claude`, `codex`, `claude.plan`, `codex.nowindow` | next reset / planned ping / re-check times |
+| `history.jsonl`, `history.codex.jsonl` | seeded history from before sampling began; delete one to reseed it |
+| `claude`, `codex`, `claude.plan`, `codex.plan` | next reset / planned ping times |
 | `heartbeat` | last completed pass (health check) |
 
 The board's data is a copy; losing InfluxDB loses nothing you cannot replay with `backfill`.
@@ -101,7 +102,9 @@ git pull && docker compose up -d --build        # or bump the image tag
 docker compose exec defenestrator python3 -m defenestrator backfill     # if the release says so
 ```
 
-Read [CHANGELOG.md](../CHANGELOG.md): releases that change a measurement say how to migrate.
+Read [CHANGELOG.md](../CHANGELOG.md): releases that change a measurement say how to migrate. From
+0.3 to 0.4 `defenestrator_usage` gained a `provider` tag; delete the old untagged points and
+backfill (see the changelog).
 
 ## Troubleshooting
 
@@ -112,6 +115,8 @@ Read [CHANGELOG.md](../CHANGELOG.md): releases that change a measurement say how
 - `no credentials` / `no access token`: `~/.claude/.credentials.json` is not mounted or not
   readable by uid 1000.
 - `usage request failed`: network, or Anthropic's endpoint changed.
+
+**It never pings (Codex).** On a weekly-only plan this is expected: see the Decision log's `skip` line.
 
 **It never pings.** That can be right: `defenestrator report` shows the plan. While a window is
 running it waits, and for the first 7 days it only pings at expiry. Check `QUIET_HOURS` and

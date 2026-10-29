@@ -27,9 +27,12 @@ Every 10 minutes (or earlier, at the exact moment a window is due to reset) it d
 3. **Ping.** `claude -p hi --model haiku --max-turns 1`, run from a throwaway directory with API
    key variables removed. The CLI reports the real reset time of the window it just started,
    which is stored so the next pass knows when to wake.
-4. **Codex.** Where the plan has a 300-minute window, the same idea: read
-   `account/rateLimits/read` from `codex app-server`, and run `codex exec` (cheapest model) only
-   when no window is in use. Plans without a 5-hour window are re-checked every 6 hours.
+4. **Codex.** Every pass it also reads `account/rateLimits/read` from `codex app-server`, maps its
+   windows by duration (300 minutes is the 5-hour one, 10080 the weekly one) into the same sample
+   shape, and appends it to `usage.codex.jsonl`. If the plan has a 5-hour window the same planner
+   runs on Codex's own samples and history, and `codex exec` (the CLI's cheapest model, or
+   `CODEX_MODEL`) starts a window when it says so. A weekly-only plan (such as `prolite`) is sampled
+   but never pinged: there is no 5-hour window to start, and the decision log says so.
 5. **Record.** Every decision goes to `events.jsonl` (and InfluxDB) with a reason. A state that
    repeats, such as "window running", is recorded when it changes, not every pass.
 
@@ -63,7 +66,11 @@ hours, the plan and its expected windows) so you can check that it learned somet
 
 ### Where the history comes from
 
-On first run it seeds 28 days from the Claude Code and pi session logs it can see (and any hosts
+**Codex** seeds from its own session logs, which record the real window utilization with every
+message (`token_count` events carry a `rate_limits` snapshot), so no price conversion is involved.
+A weekly-only plan has no 5-hour snapshots, so nothing is seeded and it is never planned.
+
+**Claude** seeds on first run 28 days from the Claude Code and pi session logs it can see (and any hosts
 in `SEED_HOSTS`, over ssh), converting API-equivalent cost into percent of the 5-hour budget at a
 fixed 0.58% per dollar (measured on a Max plan). That constant is a simplification: it only
 bootstraps the profile, and real samples take over as they accumulate. If there are no logs to
@@ -75,6 +82,7 @@ learning period instead.
 ```
    Anthropic usage API ─┐
    claude / codex CLIs ─┤        ┌── usage.jsonl   (account-wide samples)
+   codex app-server ────┤
    session logs ────────┴─►  defenestrator ─┼── events.jsonl  (every decision)
                                  │          └── history.jsonl (seeded profile)
                                  ▼
@@ -89,7 +97,7 @@ The files in `DEFENESTRATOR_STATE` are the source of truth; InfluxDB is a copy f
 
 | Measurement | Tags | Fields |
 |---|---|---|
-| `defenestrator_usage` | `host` | `u5`, `u7` (percent), `reset5`, `reset7` (epoch seconds), `capped` |
+| `defenestrator_usage` | `host`, `provider` (`claude`, `codex`) | `u5`, `u7` (percent), `reset5`, `reset7` (epoch seconds), `capped`. A weekly-only plan has no `u5`/`reset5` |
 | `defenestrator_event` | `host`, `provider`, `kind` | `reason` (string), `reset` |
 | `defenestrator_use` | `host`, `model`, `project` | `cost` (API-equivalent $), `pct` (estimated % of the 5-hour budget), one point per 10 minutes |
 

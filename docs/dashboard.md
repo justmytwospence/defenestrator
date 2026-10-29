@@ -9,6 +9,15 @@ Time zones: charts follow your **browser** time zone. The hour-of-day chart and 
 the time zone set in their queries (`America/Denver` in the shipped file; change it at the top of
 those queries).
 
+## Provider
+
+The selector at the top switches every usage panel between **Claude** and **Codex**. A Codex plan
+without a 5-hour window shows "no 5-hour window on this plan" on the 5-hour panels and still charts
+the weekly window. The decision log always shows both providers, and the usage-by-model/project
+panels are Claude only.
+
+![Codex](images/provider-codex.png)
+
 ## Top: right now
 
 | Panel | What it shows |

@@ -49,7 +49,8 @@ message will start it".
   and a log of every decision it made and why.
 - **It is boring to run.** One container, official CLIs only, no API keys, no scraping. A ping
   costs a one-word message to the smallest model.
-- **Codex too.** On plans with a 5-hour window it does the same for Codex.
+- **Claude and Codex.** Both providers are sampled, learned and (where they have a 5-hour window)
+  managed the same way, and the board has a provider switch. See [Claude and Codex](#claude-and-codex).
 
 ## Try it in 60 seconds, with nothing to log in to
 
@@ -64,7 +65,7 @@ throwaway InfluxDB and shows the real board. It never touches your logins and se
 ## Run it for real
 
 You need Docker, and `claude` logged in on the host with a claude.ai subscription (not an API
-key). Codex is optional (a ChatGPT login on a plan with a 5-hour window).
+key). Codex is optional (a ChatGPT login; see [Claude and Codex](#claude-and-codex) for what each plan gets).
 
 ```sh
 cp .env.example .env     # three secrets, your TZ, and your uid/gid (see the comments in it)
@@ -130,6 +131,27 @@ Windows started per day (more is the point) and the hours you spent capped.
 
 Every ping, wait, skip and error with its reason, newest first. Nothing it does is a black box.
 
+## Claude and Codex
+
+| | Claude (Anthropic) | Codex (OpenAI) |
+|---|---|---|
+| Usage samples every 10 minutes | account-wide, from the usage endpoint | from `codex app-server` (`account/rateLimits/read`) |
+| 5-hour and weekly utilization on the board | yes | yes, whichever windows your plan has |
+| Learned policy and pings | yes | yes, **if your plan has a 5-hour window** |
+| History seeded from | Claude Code and pi session logs | Codex session logs (they record the real windows) |
+| Usage by model and project | yes | not yet (Codex's logs are not priced) |
+
+Codex plans differ. A plan with a 5-hour window is managed exactly like Claude. A **weekly-only**
+plan (for example `prolite`) has nothing for the defenestrator to start, so it only samples and
+charts the weekly window and records why it is not pinging.
+
+<img src="docs/images/provider-codex.png" alt="The board with the provider switch set to Codex" width="900">
+
+What has been verified: the Codex weekly-only path runs live against a real `prolite` account
+(sampling, board, decision log), and the 5-hour path is covered by tests built from the same rate-limit
+schema. **The 5-hour Codex path has not yet run against a real 5-hour Codex plan.** If you have one,
+`DRY_RUN=1` plus the Decision log will show what it would do, and a report is welcome.
+
 ## How it decides
 
 Every 10 minutes it samples your account-wide usage. When no window is running, it replays each
@@ -146,7 +168,7 @@ and its limits, is in [docs/how-it-works.md](docs/how-it-works.md).
 | `DRY_RUN=1` | Log decisions only, send nothing |
 | `QUIET_HOURS=1-7` | Local hours with no pings (sampling continues) |
 | `CLAUDE_MODEL` | Model for the ping, default `haiku` |
-| `CODEX=off` | Skip Codex |
+| `CODEX=off` | Skip Codex (no sampling, no pings) |
 | `CODEX_MODEL` | Model for the Codex ping (default: Codex's own) |
 | `TICK_SECONDS` | Longest wait between runs, default 600 |
 | `SEED_HOSTS` | ssh hosts whose session logs also seed the profile |

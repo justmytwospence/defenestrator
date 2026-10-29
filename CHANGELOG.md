@@ -1,7 +1,15 @@
 # Changelog
 
-## Unreleased
-The 7-day utilization chart shades red where usage is above the even-pace line, like the 5-hour chart.
+## [0.4.0]
+Codex is a first-class provider. Every pass samples its rate limits (`usage.codex.jsonl`); a plan
+with a 5-hour window gets the same learned policy and pings as Claude, seeded from Codex's own
+session logs; a weekly-only plan is sampled and charted and never pinged. The board has a provider
+selector, `demo` seeds both providers, and the 7-day chart shades red above the even-pace line.
+The Codex 5-hour path is built from the documented schema and tests; it has not run against a real
+5-hour Codex plan.
+
+**Migration:** `defenestrator_usage` now has a `provider` tag. Delete the old points, then backfill:
+`influx delete --predicate '_measurement="defenestrator_usage"' ...` and `defenestrator backfill`.
 
 ## [0.3.0]
 New README and docs (how it works, the board panel by panel, operating it) with screenshots.
